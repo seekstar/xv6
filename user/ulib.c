@@ -134,3 +134,14 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+char* basename(char* path) {
+    char* base = path;
+    while (*path) {
+        if ('/' == *path) {
+            base = path;
+        }
+        ++path;
+    }
+    return base + 1;
+}

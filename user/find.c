@@ -4,37 +4,13 @@
 #include "kernel/fs.h"
 #include "kernel/fcntl.h"
 
-#include "user/basename.h"
 #include "user/limits.h"
-#include "user/lib/fmtname.h"
 
-int kmp(const char s[], int m, const char p[], int n, const int fail[]) {
-	int j = 0, i;
-	for(i = 0; i < m; i++) {
-		while(j != -1 && s[i] != p[j])
-			j = fail[j];
-		if(++j == n) {
-			return 1;
-			j = fail[j];
-		}
-	}
-	return 0;
-}
-
-//The length of fail will be (n+1)
-void GetFail(int fail[], int n, const char p[]) {
-	int i = 0, k = -1;
-	fail[0] = -1;
-	while(i < n)
-		if(k == -1 || p[i] == p[k])
-			fail[++i] = ++k;
-		else
-			k = fail[k];
-}
+#define DEBUG 0
 
 //Please make sure:
 //  size of path is PATH_MAX
-void find_sub(char* path, char* name, int len_name, int fail[]) {
+void find_sub(char* path, const char* name) {
     struct dirent de;   //dir entry
     struct stat st;
     int fd;
@@ -54,8 +30,8 @@ void find_sub(char* path, char* name, int len_name, int fail[]) {
     switch (st.type) {
     case T_FILE:
         base = basename(path);
-        if (kmp(base, strlen(base), name, len_name, fail)) {
-            printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
+        if (strcmp(base, name) == 0) {
+            printf("%s\t%d %d %l\n", basename(path), st.type, st.ino, st.size);
         }
         break;
 
@@ -67,24 +43,33 @@ void find_sub(char* path, char* name, int len_name, int fail[]) {
         }
         base = path + len_path;
         *(base++) = '/';
+        read(fd, &de, sizeof(de));    //.
+        read(fd, &de, sizeof(de));    //..
+        //read(fd, &de, sizeof(de)) == sizeof(de);
         while (read(fd, &de, sizeof(de)) == sizeof(de)) {
             if (de.inum == 0)
                 continue;
             memmove(base, de.name, DIRSIZ);
             base[DIRSIZ] = 0;
-            find_sub(path, name, len_name, fail);
+            find_sub(path, name);
         }
         path[len_path] = 0;
         break;
+    
+    case T_DEVICE:
+        #if DEBUG
+        fprintf(2, "a device\n");
+        #endif
+        break;
     }
+    close(fd);
 }
 
 //default: -iname
-void find(char* path, char* name) {
-    int fail[PATH_MAX];
-    int len_name = strlen(name);
-    GetFail(fail, len_name, name);
-    find_sub(path, name, len_name, fail);
+void find(const char* path, const char* name) {
+    char buf[PATH_MAX];
+    strcpy(buf, path);
+    find_sub(buf, name);
 }
 
 int main(int argc, char** argv) {
