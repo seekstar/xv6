@@ -5,16 +5,11 @@
 #include "riscv.h"
 #include "defs.h"
 
+#include "buddy.h"
+
 // Buddy allocator
 
 static int nsizes;     // the number of entries in bd_sizes array
-
-#define LEAF_SIZE     16                         // The smallest block size
-#define MAXSIZE       (nsizes-1)                 // Largest index in bd_sizes array
-#define BLK_SIZE(k)   ((1L << (k)) * LEAF_SIZE)  // Size of block at size k
-#define HEAP_SIZE     BLK_SIZE(MAXSIZE) 
-#define NBLK(k)       (1 << (MAXSIZE-k))         // Number of block at size k
-#define ROUNDUP(n,sz) (((((n)-1)/(sz))+1)*(sz))  // Round up to the next multiple of sz
 
 typedef struct list Bd_list;
 
@@ -105,10 +100,10 @@ firstk(uint64 n) {
   return k;
 }
 
-// Compute the block index for address p at size k
+// Compute the block index for address base at size k
 int
-blk_index(int k, char *p) {
-  int n = p - (char *) bd_base;
+blk_index(int k, char *base) {
+  int n = base - (char *) bd_base;
   return n / BLK_SIZE(k);
 }
 
@@ -116,6 +111,11 @@ blk_index(int k, char *p) {
 void *addr(int k, int bi) {
   int n = bi * BLK_SIZE(k);
   return (char *) bd_base + n;
+}
+
+uint64
+bd_real_alloc(uint64 nbytes) {
+  return BLK_SIZE(firstk(nbytes));
 }
 
 // allocate nbytes, but malloc won't return anything smaller than LEAF_SIZE
@@ -138,44 +138,44 @@ bd_malloc(uint64 nbytes)
   }
 
   // Found a block; pop it and potentially split it.
-  char *p = lst_pop(&bd_sizes[k].free);
-  bit_set(bd_sizes[k].alloc, blk_index(k, p));
+  char *base = lst_pop(&bd_sizes[k].free);
+  bit_set(bd_sizes[k].alloc, blk_index(k, base));
   for(; k > fk; k--) {
     // split a block at size k and mark one half allocated at size k-1
     // and put the buddy on the free list at size k-1
-    char *q = p + BLK_SIZE(k-1);   // p's buddy
-    bit_set(bd_sizes[k].split, blk_index(k, p));
-    bit_set(bd_sizes[k-1].alloc, blk_index(k-1, p));
+    char *q = base + BLK_SIZE(k-1);   // base's buddy
+    bit_set(bd_sizes[k].split, blk_index(k, base));
+    bit_set(bd_sizes[k-1].alloc, blk_index(k-1, base));
     lst_push(&bd_sizes[k-1].free, q);
   }
   release(&lock);
 
-  return p;
+  return base;
 }
 
-// Find the size of the block that p points to.
+// Find the size of the block that base points to.
 int
-size(char *p) {
+size(char *base) {
   for (int k = 0; k < nsizes; k++) {
-    if(bit_isset(bd_sizes[k+1].split, blk_index(k+1, p))) {
+    if(bit_isset(bd_sizes[k+1].split, blk_index(k+1, base))) {
       return k;
     }
   }
   return 0;
 }
 
-// Free memory pointed to by p, which was earlier allocated using
+// Free memory pointed to by base, which was earlier allocated using
 // bd_malloc.
 void
-bd_free(void *p) {
+bd_free(void *base) {
   void *q;
   int k;
 
   acquire(&lock);
-  for (k = size(p); k < MAXSIZE; k++) {
-    int bi = blk_index(k, p);
+  for (k = size(base); k < MAXSIZE; k++) {
+    int bi = blk_index(k, base);
     int buddy = (bi % 2 == 0) ? bi+1 : bi-1;
-    bit_clear(bd_sizes[k].alloc, bi);  // free p at size k
+    bit_clear(bd_sizes[k].alloc, bi);  // free base at size k
     if (bit_isset(bd_sizes[k].alloc, buddy)) {  // is buddy allocated?
       break;   // break out of loop
     }
@@ -183,21 +183,21 @@ bd_free(void *p) {
     q = addr(k, buddy);
     lst_remove(q);    // remove buddy from free list
     if(buddy % 2 == 0) {
-      p = q;
+      base = q;
     }
     // at size k+1, mark that the merged buddy pair isn't split
     // anymore
-    bit_clear(bd_sizes[k+1].split, blk_index(k+1, p));
+    bit_clear(bd_sizes[k+1].split, blk_index(k+1, base));
   }
-  lst_push(&bd_sizes[k].free, p);
+  lst_push(&bd_sizes[k].free, base);
   release(&lock);
 }
 
-// Compute the first block at size k that doesn't contain p
+// Compute the first block at size k that doesn't contain base
 int
-blk_index_next(int k, char *p) {
-  int n = (p - (char *) bd_base) / BLK_SIZE(k);
-  if((p - (char*) bd_base) % BLK_SIZE(k) != 0)
+blk_index_next(int k, char *base) {
+  int n = (base - (char *) bd_base) / BLK_SIZE(k);
+  if((base - (char*) bd_base) % BLK_SIZE(k) != 0)
       n++;
   return n ;
 }
@@ -250,7 +250,7 @@ bd_initfree_pair(int k, int bi) {
   }
   return free;
 }
-  
+
 // Initialize the free lists for each size k.  For each size k, there
 // are only two pairs that may have a buddy that should be on free list:
 // bd_left and bd_right.
@@ -269,12 +269,12 @@ bd_initfree(void *bd_left, void *bd_right) {
   return free;
 }
 
-// Mark the range [bd_base,p) as allocated
+// Mark the range [bd_base,base) as allocated
 int
-bd_mark_data_structures(char *p) {
-  int meta = p - (char*)bd_base;
+bd_mark_data_structures(char *base) {
+  int meta = base - (char*)bd_base;
   printf("bd: %d meta bytes for managing %d bytes of memory\n", meta, BLK_SIZE(MAXSIZE));
-  bd_mark(bd_base, p);
+  bd_mark(bd_base, base);
   return meta;
 }
 
@@ -294,56 +294,56 @@ bd_mark_unavailable(void *end, void *left) {
 // Initialize the buddy allocator: it manages memory from [base, end).
 void
 bd_init(void *base, void *end) {
-  char *p = (char *) ROUNDUP((uint64)base, LEAF_SIZE);
+  base = (char *) ROUNDUP((uint64)base, LEAF_SIZE);
   int sz;
 
   initlock(&lock, "buddy");
-  bd_base = (void *) p;
+  bd_base = (void *) base;
 
   // compute the number of sizes we need to manage [base, end)
-  nsizes = log2(((char *)end-p)/LEAF_SIZE) + 1;
-  if((char*)end-p > BLK_SIZE(MAXSIZE)) {
+  nsizes = log2(((char*)end-(char*)base)/LEAF_SIZE) + 1;
+  if((char*)end-(char*)base > BLK_SIZE(MAXSIZE)) {
     nsizes++;  // round up to the next power of 2
   }
 
   printf("bd: memory sz is %d bytes; allocate an size array of length %d\n",
-         (char*) end - p, nsizes);
+         (char*) end - (char*)base, nsizes);
 
   // allocate bd_sizes array
-  bd_sizes = (Sz_info *) p;
-  p += sizeof(Sz_info) * nsizes;
+  bd_sizes = (Sz_info *) base;
+  base += sizeof(Sz_info) * nsizes;
   memset(bd_sizes, 0, sizeof(Sz_info) * nsizes);
 
   // initialize free list and allocate the alloc array for each size k
-  for (int k = 0; k < nsizes; k++) {
+  for (int k = 0; k < nsizes; ++k) {
     lst_init(&bd_sizes[k].free);
-    sz = sizeof(char)* ROUNDUP(NBLK(k), 8)/8;
-    bd_sizes[k].alloc = p;
+    sz = sizeof(char) * ROUNDUP(NBLK(k), 8)/8;
+    bd_sizes[k].alloc = base;
     memset(bd_sizes[k].alloc, 0, sz);
-    p += sz;
+    base += sz;
   }
 
   // allocate the split array for each size k, except for k = 0, since
   // we will not split blocks of size k = 0, the smallest size.
-  for (int k = 1; k < nsizes; k++) {
-    sz = sizeof(char)* (ROUNDUP(NBLK(k), 8))/8;
-    bd_sizes[k].split = p;
+  for (int k = 1; k < nsizes; ++k) {
+    sz = sizeof(char) * (ROUNDUP(NBLK(k), 8))/8;
+    bd_sizes[k].split = base;
     memset(bd_sizes[k].split, 0, sz);
-    p += sz;
+    base += sz;
   }
-  p = (char *) ROUNDUP((uint64) p, LEAF_SIZE);
+  base = (char *) ROUNDUP((uint64) base, LEAF_SIZE);
 
-  // done allocating; mark the memory range [base, p) as allocated, so
+  // done allocating; mark the memory range [bd_base, base) as allocated, so
   // that buddy will not hand out that memory.
-  int meta = bd_mark_data_structures(p);
+  int meta = bd_mark_data_structures(base);
   
   // mark the unavailable memory range [end, HEAP_SIZE) as allocated,
   // so that buddy will not hand out that memory.
-  int unavailable = bd_mark_unavailable(end, p);
+  int unavailable = bd_mark_unavailable(end, base);
   void *bd_end = bd_base+BLK_SIZE(MAXSIZE)-unavailable;
   
   // initialize free lists for each size k
-  int free = bd_initfree(p, bd_end);
+  int free = bd_initfree(base, bd_end);
 
   // check if the amount that is free is what we expect
   if(free != BLK_SIZE(MAXSIZE)-meta-unavailable) {
@@ -351,4 +351,3 @@ bd_init(void *base, void *end) {
     panic("bd_init: free mem");
   }
 }
-

@@ -194,6 +194,7 @@ void            virtio_disk_intr(int);
 void           bd_init(void*,void*);
 void           bd_free(void*);
 void           *bd_malloc(uint64);
+uint64 bd_real_alloc(uint64 nbytes);
 
 struct list {
   struct list *next;
