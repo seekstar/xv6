@@ -15,14 +15,12 @@ typedef struct list Bd_list;
 
 // The allocator has sz_info for each size k. Each sz_info has a free
 // list, an array alloc to keep track which blocks have been
-// allocated, and an split array to to keep track which blocks have
-// been split.  The arrays are of type char (which is 1 byte), but the
+// allocated.  The arrays are of type char (which is 1 byte), but the
 // allocator uses 1 bit per block (thus, one char records the info of
 // 8 blocks).
 struct sz_info {
   Bd_list free;
   char *alloc;
-  char *split;
 };
 typedef struct sz_info Sz_info;
 
@@ -80,10 +78,6 @@ bd_print() {
     lst_print(&bd_sizes[k].free);
     printf("  alloc:");
     bd_print_vector(bd_sizes[k].alloc, NBLK(k));
-    if(k > 0) {
-      printf("  split:");
-      bd_print_vector(bd_sizes[k].split, NBLK(k));
-    }
   }
 }
 
@@ -144,7 +138,6 @@ bd_malloc(uint64 nbytes)
     // split a block at size k and mark one half allocated at size k-1
     // and put the buddy on the free list at size k-1
     char *q = base + BLK_SIZE(k-1);   // base's buddy
-    bit_set(bd_sizes[k].split, blk_index(k, base));
     bit_set(bd_sizes[k-1].alloc, blk_index(k-1, base));
     lst_push(&bd_sizes[k-1].free, q);
   }
@@ -156,8 +149,9 @@ bd_malloc(uint64 nbytes)
 // Find the size of the block that base points to.
 int
 size(char *base) {
-  for (int k = 0; k < nsizes; k++) {
-    if(bit_isset(bd_sizes[k+1].split, blk_index(k+1, base))) {
+  for (int k = 0; k < nsizes; ++k) {
+    int ind = blk_index(k, base);
+    if (bit_isset(bd_sizes[k].alloc, ind) || bit_isset(bd_sizes[k].alloc, ind + 1)) {
       return k;
     }
   }
@@ -185,9 +179,6 @@ bd_free(void *base) {
     if(buddy % 2 == 0) {
       base = q;
     }
-    // at size k+1, mark that the merged buddy pair isn't split
-    // anymore
-    bit_clear(bd_sizes[k+1].split, blk_index(k+1, base));
   }
   lst_push(&bd_sizes[k].free, base);
   release(&lock);
@@ -225,10 +216,6 @@ bd_mark(void *start, void *stop)
     bi = blk_index(k, start);
     bj = blk_index_next(k, stop);
     for(; bi < bj; bi++) {
-      if(k > 0) {
-        // if a block is allocated at size k, mark it as split too.
-        bit_set(bd_sizes[k].split, bi);
-      }
       bit_set(bd_sizes[k].alloc, bi);
     }
   }
@@ -323,14 +310,6 @@ bd_init(void *base, void *end) {
     base += sz;
   }
 
-  // allocate the split array for each size k, except for k = 0, since
-  // we will not split blocks of size k = 0, the smallest size.
-  for (int k = 1; k < nsizes; ++k) {
-    sz = sizeof(char) * (ROUNDUP(NBLK(k), 8))/8;
-    bd_sizes[k].split = base;
-    memset(bd_sizes[k].split, 0, sz);
-    base += sz;
-  }
   base = (char *) ROUNDUP((uint64) base, LEAF_SIZE);
 
   // done allocating; mark the memory range [bd_base, base) as allocated, so
