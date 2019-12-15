@@ -44,6 +44,8 @@ sys_sbrk(void)
   int addr;
   int n;
 
+  print_kernel_pagetable();
+
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;

@@ -6,6 +6,8 @@
 #include "defs.h"
 #include "fs.h"
 
+#define PTE_NUM 512
+
 /*
  * the kernel's page table.
  */
@@ -16,6 +18,28 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 extern char trampoline[]; // trampoline.S
 
 void print(pagetable_t);
+
+void print_pagetable_sub(pagetable_t pt, int level) {
+  if (level >= 3) return;
+  ++level;
+  for (int i = 0; i < PTE_NUM; ++i) {
+    if (pt[i]) {
+      for (int j = 0; j < level; ++j) {
+        printf(" ..");
+      }
+      pagetable_t nxt = (pagetable_t)PTE2PA(pt[i]);
+      printf("%d: pte 0x%p pa 0x%p\n", i, pt[i], nxt);
+      print_pagetable_sub(nxt, level);
+    }
+  }
+}
+void print_pagetable(pagetable_t pt) {
+  printf("page table 0x%p\n", pt);
+  print_pagetable_sub(pt, 0);
+}
+void print_kernel_pagetable() {
+  print_pagetable(kernel_pagetable);
+}
 
 /*
  * create a direct-map page table for the kernel and

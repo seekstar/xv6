@@ -207,3 +207,6 @@ void lst_push(struct list*, void *);
 void *lst_pop(struct list*);
 void lst_print(struct list*);
 int lst_empty(struct list*);
+
+
+void print_kernel_pagetable();
