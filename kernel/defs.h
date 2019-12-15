@@ -216,3 +216,4 @@ void vmprint(pagetable_t pt);
 int prepare_va(uint64 va);
 int pay_for_lazy(pagetable_t pagetable, uint64 va);
 void prepare(uint64 va, uint64 n);
+void kvm_invalid_page(uint64 va);

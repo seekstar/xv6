@@ -151,6 +151,11 @@ kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
     panic("kvmmap");
 }
 
+void kvm_invalid_page(uint64 va) {
+  va = PGROUNDDOWN(va);
+  *walk(kernel_pagetable, va, 1) = 0;
+}
+
 // translate a kernel virtual address to
 // a physical address. only needed for
 // addresses on the stack.

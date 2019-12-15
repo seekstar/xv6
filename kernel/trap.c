@@ -6,8 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
-#define DEBUG 0
-#define DEBUG2 0
+#define DEBUG 1
 
 struct spinlock tickslock;
 uint ticks;
@@ -46,7 +45,9 @@ void prepare(uint64 va, uint64 n) {
 }
 int pay_for_lazy(pagetable_t pagetable, uint64 va) {
   struct proc* p = myproc();
-  if (p->sz <= va || (p->kstack - PGSIZE <= va && va <= p->kstack)) {
+  printf("pay_for_lazy: p->ustack = %p\n", p->ustack);
+  if (p->sz <= va /*|| (p->ustack - 2 * PGSIZE <= va && va <= p->ustack + 2 * PGSIZE)*/
+      || (p->ustack - PGSIZE <= va && va < p->ustack)) {
     //access illegal memory
     p->killed = 1;
     return -1;
