@@ -172,6 +172,8 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 
+pte_t* walk(pagetable_t pagetable, uint64 va, int alloc);
+
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
@@ -209,4 +211,4 @@ void lst_print(struct list*);
 int lst_empty(struct list*);
 
 
-void print_kernel_pagetable();
+void vmprint(pagetable_t pt);

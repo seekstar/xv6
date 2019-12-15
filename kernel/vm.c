@@ -8,6 +8,8 @@
 
 #define PTE_NUM 512
 
+#define DEBUG 1
+
 /*
  * the kernel's page table.
  */
@@ -19,7 +21,7 @@ extern char trampoline[]; // trampoline.S
 
 void print(pagetable_t);
 
-void print_pagetable_sub(pagetable_t pt, int level) {
+void vmprint_sub(pagetable_t pt, int level) {
   if (level >= 3) return;
   ++level;
   for (int i = 0; i < PTE_NUM; ++i) {
@@ -28,17 +30,14 @@ void print_pagetable_sub(pagetable_t pt, int level) {
         printf(" ..");
       }
       pagetable_t nxt = (pagetable_t)PTE2PA(pt[i]);
-      printf("%d: pte 0x%p pa 0x%p\n", i, pt[i], nxt);
-      print_pagetable_sub(nxt, level);
+      printf("%d: pte %p pa %p\n", i, pt[i], nxt);
+      vmprint_sub(nxt, level);
     }
   }
 }
-void print_pagetable(pagetable_t pt) {
-  printf("page table 0x%p\n", pt);
-  print_pagetable_sub(pt, 0);
-}
-void print_kernel_pagetable() {
-  print_pagetable(kernel_pagetable);
+void vmprint(pagetable_t pt) {
+  printf("page table %p\n", pt);
+  vmprint_sub(pt, 0);
 }
 
 /*
@@ -99,7 +98,7 @@ kvminithart()
 //   21..39 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..12 -- 12 bits of byte offset within the page.
-static pte_t *
+pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
@@ -208,22 +207,25 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   pte_t *pte;
   uint64 pa;
 
+  #if DEBUG
+  printf("uvmunmap: va = %p, size = %d\n", va, size);
+  #endif
+
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0){
-      printf("va=%p pte=%p\n", a, *pte);
-      panic("uvmunmap: not mapped");
+    pte = walk(pagetable, a, 0);
+    if (pte) {
+      if (*pte & PTE_V) {
+        if(PTE_FLAGS(*pte) == PTE_V)
+          panic("uvmunmap: not a leaf");
+        if(do_free){
+          pa = PTE2PA(*pte);
+          kfree((void*)pa);
+        }
+      }
+      *pte = 0;
     }
-    if(PTE_FLAGS(*pte) == PTE_V)
-      panic("uvmunmap: not a leaf");
-    if(do_free){
-      pa = PTE2PA(*pte);
-      kfree((void*)pa);
-    }
-    *pte = 0;
     if(a == last)
       break;
     a += PGSIZE;
@@ -319,6 +321,7 @@ freewalk(pagetable_t pagetable)
       freewalk((pagetable_t)child);
       pagetable[i] = 0;
     } else if(pte & PTE_V){
+      printf("pte: %p, pa: %p\n", pte, PTE2PA(pte));
       panic("freewalk: leaf");
     }
   }
@@ -330,6 +333,10 @@ freewalk(pagetable_t pagetable)
 void
 uvmfree(pagetable_t pagetable, uint64 sz)
 {
+#if DEBUG
+  printf("sz = %d\n", sz);
+  vmprint(pagetable);
+#endif
   uvmunmap(pagetable, 0, sz, 1);
   freewalk(pagetable);
 }
@@ -349,18 +356,17 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+    pte = walk(old, i, 0);
+    if (pte && (*pte & PTE_V)) {
+      pa = PTE2PA(*pte);
+      flags = PTE_FLAGS(*pte);
+      if((mem = kalloc()) == 0)
+        goto err;
+      memmove(mem, (char*)pa, PGSIZE);
+      if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+        kfree(mem);
+        goto err;
+      }
     }
   }
   return 0;

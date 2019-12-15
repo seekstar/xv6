@@ -7,6 +7,8 @@
 #include "spinlock.h"
 #include "proc.h"
 
+#define DEBUG 1
+
 uint64
 sys_exit(void)
 {
@@ -44,13 +46,15 @@ sys_sbrk(void)
   int addr;
   int n;
 
-  print_kernel_pagetable();
-
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
+  //myproc()->sz += n;
   if(growproc(n) < 0)
     return -1;
+#if DEBUG
+  printf("after sbrk, sz = %d, n = %d\n", myproc()->sz, n);
+#endif
   return addr;
 }
 

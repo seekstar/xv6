@@ -6,6 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 
+#define DEBUG 0
+#define DEBUG2 1
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -27,6 +30,23 @@ void
 trapinithart(void)
 {
   w_stvec((uint64)kernelvec);
+}
+
+int pay_for_lazy(pagetable_t pagetable, uint64 va) {
+  if (va >= myproc()->sz) {
+#if DEBUG2
+    //printf("too small, sz = %d\n", myproc()->sz);
+#endif
+    return -1;
+  }
+  pte_t* pte;
+  va = PGROUNDDOWN(va);
+  void* pa = kalloc();
+  memset(pa, 0, PGSIZE);
+  if((pte = walk(pagetable, va, 1)) == 0)
+      return -1;
+  *pte = PA2PTE(pa) | PTE_W | PTE_R | PTE_X | PTE_U | PTE_V;
+  return 0;
 }
 
 //
@@ -65,6 +85,19 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 0xf) {
+    //page fault
+#if DEBUG
+    printf("page fault!\n");
+    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+    printf("before:");
+    vmprint(p->pagetable);
+#endif
+    pay_for_lazy(p->pagetable, r_stval());
+#if DEBUG
+    printf("after:");
+    vmprint(p->pagetable);
+#endif
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
