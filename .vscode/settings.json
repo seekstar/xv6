@@ -3,6 +3,9 @@
         "user.h": "c",
         "basename.h": "c",
         "fmtname.h": "c",
-        "defs.h": "c"
+        "defs.h": "c",
+        "buddy.h": "c",
+        "types.h": "c",
+        "param.h": "c"
     }
 }

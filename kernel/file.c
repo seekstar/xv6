@@ -14,59 +14,64 @@
 #include "proc.h"
 
 #include "buddy.h"
+#include "consts.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
-struct files_struct {
-  unsigned int max_files;
-  struct file base[NFILE];
-  struct file* file;
+#define FILES_BLOCK_SZ LEAF_SIZE
+
+struct files_block {
+  struct file v[FILES_BLOCK_SZ];  //It's the multiple of LEAF
+  struct files_block* nxt;
 };
+
 struct devsw devsw[NDEV];
+
 struct {
   struct spinlock lock;
-  struct files_struct files;
+  uint32 ed;
+  struct files_block files;
 } ftable;
 
 void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
-  ftable.files.file = ftable.files.base;
-  ftable.files.max_files = NFILE;
+  ftable.ed = 0;
+  ftable.files.nxt = NULL;
 }
 
 // Allocate a file structure.
 struct file*
 filealloc(void)
 {
-  struct file *f;
+  struct file *f = NULL;
+  struct files_block* it;
 
   acquire(&ftable.lock);
-  for(f = ftable.files.file; f < ftable.files.file + ftable.files.max_files; f++){
-    if(f->ref == 0){
+  for (it = &ftable.files; it->nxt; it = it->nxt) {
+    for (f = it->v; f < it->v + FILES_BLOCK_SZ; ++f) {
+      if (0 == f->ref) {
+        f->ref = 1;
+        release(&ftable.lock);
+        return f;
+      }
+    }
+  }
+  for (f = it->v; f < it->v + ftable.ed; ++f) {
+    if (0 == f->ref) {
       f->ref = 1;
       release(&ftable.lock);
       return f;
     }
   }
-  unsigned int new_sz = bd_real_alloc((ftable.files.max_files << 1) * sizeof(struct file)) / sizeof(struct file);
-  struct file* now = bd_malloc(new_sz * sizeof(struct file));
-  if (now) {
-    memmove(now, ftable.files.file, ftable.files.max_files * sizeof(struct file));
-    if (ftable.files.file != ftable.files.base) {
-      bd_free(ftable.files.file);
-    }
-    ftable.files.file = now;
-    f = ftable.files.file + ftable.files.max_files;
-    f->ref = 1;
-    ftable.files.max_files = new_sz;
-  } else {
-    f = 0;
-#if DEBUG
-    panic("no enough memory!");
-#endif
+  if (FILES_BLOCK_SZ == ftable.ed) {
+    ftable.ed = 0;
+    it->nxt = bd_malloc(sizeof(struct files_block));
+    it = it->nxt;
   }
+  f = &(it->v[ftable.ed++]);
+  f->ref = 1;
   release(&ftable.lock);
   return f;
 }
