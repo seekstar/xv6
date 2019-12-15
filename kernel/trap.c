@@ -7,7 +7,7 @@
 #include "defs.h"
 
 #define DEBUG 0
-#define DEBUG2 1
+#define DEBUG2 0
 
 struct spinlock tickslock;
 uint ticks;
@@ -32,16 +32,32 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+int prepare_va(uint64 va) {
+  return pay_for_lazy(myproc()->pagetable, va);
+}
+void prepare(uint64 va, uint64 n) {
+  if (n > 0)
+    prepare_va(va + n - 1);
+  while (n > 0) {
+    prepare_va(va);
+    va += PGSIZE;
+    n -= PGSIZE;
+  }
+}
 int pay_for_lazy(pagetable_t pagetable, uint64 va) {
-  if (va >= myproc()->sz) {
-#if DEBUG2
-    //printf("too small, sz = %d\n", myproc()->sz);
-#endif
+  struct proc* p = myproc();
+  if (p->sz <= va || (p->kstack - PGSIZE <= va && va <= p->kstack)) {
+    //access illegal memory
+    p->killed = 1;
     return -1;
   }
   pte_t* pte;
   va = PGROUNDDOWN(va);
   void* pa = kalloc();
+  if (!pa) {
+    p->killed = 1;
+    return -1;
+  }
   memset(pa, 0, PGSIZE);
   if((pte = walk(pagetable, va, 1)) == 0)
       return -1;
@@ -85,7 +101,7 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if (r_scause() == 0xf) {
+  } else if (r_scause() == 0xf || r_scause() == 0xd) {
     //page fault
 #if DEBUG
     printf("page fault!\n");

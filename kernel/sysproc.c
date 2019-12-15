@@ -7,7 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 uint64
 sys_exit(void)

@@ -8,7 +8,7 @@
 
 #define PTE_NUM 512
 
-#define DEBUG 1
+#define DEBUG 0
 
 /*
  * the kernel's page table.
