@@ -423,15 +423,18 @@ bmap(struct inode *ip, uint bn)
 }
 
 //recursively
+//depth >= 0
 //addr may be zero
-void free_block(uint dev, uint addr) {
+void free_block(uint dev, uint addr, uint depth) {
   if (0 == addr) return;
-  struct buf *bp = bread(dev, addr);
-  uint *a = (uint*)bp->data;
-  for(int j = 0; j < NINDIRECT; j++){
-    free_block(dev, a[j]);
+  if (depth) {
+    struct buf *bp = bread(dev, addr);
+    uint *a = (uint*)bp->data;
+    for(int j = 0; j < NINDIRECT; j++){
+      free_block(dev, a[j], depth-1);
+    }
+    brelse(bp);
   }
-  brelse(bp);
   bfree(dev, addr);
 }
 // Truncate inode (discard contents).
@@ -447,8 +450,8 @@ itrunc(struct inode *ip)
       bfree(ip->dev, ip->addrs[i]);
     }
   }
-  free_block(ip->dev, ip->addrs[NDIRECT]);
-  free_block(ip->dev, ip->addrs[NDIRECT + 1]);
+  free_block(ip->dev, ip->addrs[NDIRECT], 1);
+  free_block(ip->dev, ip->addrs[NDIRECT + 1], 2);
   memset(ip->addrs, 0, sizeof(ip->addrs));
 
   ip->size = 0;
