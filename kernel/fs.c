@@ -405,18 +405,18 @@ uint bmap_main(uint* addr, uint dev, uint bn, uint depth) {
 static uint
 bmap(struct inode *ip, uint bn)
 {
-  if(bn < NDIRECT - 1){
+  if(bn < NDIRECT){
     return bmap_main(ip->addrs + bn, ip->dev, bn, 0);
   }
-  bn -= NDIRECT - 1;
+  bn -= NDIRECT;
 
   if(bn < NINDIRECT){
-    return bmap_main(ip->addrs + NDIRECT - 1, ip->dev, bn, 1);
+    return bmap_main(ip->addrs + NDIRECT, ip->dev, bn, 1);
   }
   bn -= NINDIRECT;
 
   if (bn < NINDIRECT2) {
-    return bmap_main(ip->addrs + NDIRECT, ip->dev, bn, 2);
+    return bmap_main(ip->addrs + NDIRECT + 1, ip->dev, bn, 2);
   }
 
   panic("bmap: out of range");
@@ -442,13 +442,13 @@ void free_block(uint dev, uint addr) {
 static void
 itrunc(struct inode *ip)
 {
-  for(int i = 0; i < NDIRECT - 1; i++){
+  for(int i = 0; i < NDIRECT; i++){
     if(ip->addrs[i]){
       bfree(ip->dev, ip->addrs[i]);
     }
   }
-  free_block(ip->dev, ip->addrs[NDIRECT - 1]);
   free_block(ip->dev, ip->addrs[NDIRECT]);
+  free_block(ip->dev, ip->addrs[NDIRECT + 1]);
   memset(ip->addrs, 0, sizeof(ip->addrs));
 
   ip->size = 0;
