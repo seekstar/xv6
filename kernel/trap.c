@@ -32,37 +32,16 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-int prepare_va(uint64 va) {
-  return pay_for_lazy(myproc()->pagetable, va);
-}
-void prepare(uint64 va, uint64 n) {
-#if DEBUG_PREPARE
-  printf("prepare: va = %p, n = %d\n", va, n);
-  printf("before:");
-  vmprint(myproc()->pagetable);
-#endif
-  
-  if (n > 0) {
-    prepare_va(va);
-    if (n > 1)
-      prepare_va(va + n - 1);
-  }
-  while (n > PGSIZE) {
-    va += PGSIZE;
-    n -= PGSIZE;
-    prepare_va(va);
-  }
-#if DEBUG_PREPARE
-  printf("after:");
-  vmprint(myproc()->pagetable);
-#endif
-}
-int pay_for_lazy(pagetable_t pagetable, uint64 va) {
+int pay_for_lazy(pagetable_t pagetable, uint64 va, int killer) {
   struct proc* p = myproc();
   //printf("pay_for_lazy: p = %p, p->ustack = %p, p->name = %s, va = %p\n", p, p->ustack, p->name, va);
   if (p->sz <= va || (p->ustack - PGSIZE <= va && va < p->ustack)) {
     //access illegal memory
-    p->killed = 1;
+    if (killer)
+      p->killed = 1;
+#if DEBUG
+    printf("killed\n");
+#endif
     return -1;
   }
   pte_t* pte = walk(pagetable, va, 1);
@@ -78,13 +57,38 @@ int pay_for_lazy(pagetable_t pagetable, uint64 va) {
     }
     memset(pa, 0, PGSIZE);
     *pte = PA2PTE(pa) | PTE_W | PTE_R | PTE_X | PTE_U | PTE_V;
+#if DEBUG
+    printf("pay_for_lazy: new pte = %p\n", *pte);
+#endif
+  }
+  return 0;
+}
+int prepare_va(uint64 va) {
+  return pay_for_lazy(myproc()->pagetable, va, 0);
+}
+int prepare(uint64 va, uint64 n) {
 #if DEBUG_PREPARE
-  } else {
-    printf("existed\n");
+  printf("prepare: va = %p, n = %d\n", va, n);
+  printf("before:");
+  vmprint(myproc()->pagetable);
+#endif
+  
+  if (n > 0) {
+    if (-1 == prepare_va(va)) 
+      return -1;
+    if (n > 1)
+      if (-1 == prepare_va(va)) 
+        return -1;
   }
-  printf("pay_for_lazy: new pte = %p\n", *pte);
-#else
+  while (n > PGSIZE) {
+    va += PGSIZE;
+    n -= PGSIZE;
+    if (-1 == prepare_va(va))
+      return -1;
   }
+#if DEBUG_PREPARE
+  printf("after:");
+  vmprint(myproc()->pagetable);
 #endif
   return 0;
 }
@@ -133,7 +137,7 @@ usertrap(void)
     printf("before:");
     vmprint(p->pagetable);
 #endif
-    pay_for_lazy(p->pagetable, r_stval());
+    pay_for_lazy(p->pagetable, r_stval(), 1);
 #if DEBUG
     printf("after:");
     vmprint(p->pagetable);

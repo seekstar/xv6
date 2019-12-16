@@ -1970,9 +1970,16 @@ pgbug(char *s)
 {
   char *argv[1];
   argv[0] = 0;
+
+  //printf("pgbug: before exec, (char*)0xeaeb0b5b00002f5e = %s\n", (char*)0xeaeb0b5b00002f5e);
+
   exec((char*)0xeaeb0b5b00002f5e, argv);
 
+  printf("pgbug: exec done\n");
+
   pipe((int*)0xeaeb0b5b00002f5e);
+
+  printf("pgbug: pipe done\n");
 
   exit(0);
 }

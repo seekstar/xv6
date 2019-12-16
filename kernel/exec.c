@@ -14,6 +14,8 @@ static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uin
 int
 exec(char *path, char **argv)
 {
+  printf("exec: path = %s, argv[0] = %s\n", path, argv[0]);
+  
   char *s, *last;
   int i, off;
   uint64 argc, sz, sp, ustack[MAXARG+1];
