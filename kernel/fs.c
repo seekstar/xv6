@@ -691,3 +691,13 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+int symlink(char* src, char* path) {
+  struct inode* ip = create(path, T_SYMLINK, 0, 0);
+  if (0 == ip) {
+    return -1;
+  }
+  writei(ip, 0, (uint64)src, 0, strlen(src));
+  iunlockput(ip);
+  return 0;
+}

@@ -95,3 +95,11 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_symlink(void) {
+  static char src[MAXPATH], path[MAXPATH];
+  argstr(0, src, MAXPATH);
+  argstr(0, path, MAXPATH);
+  return symlink(src, path);
+}

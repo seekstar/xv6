@@ -238,7 +238,8 @@ bad:
   return -1;
 }
 
-static struct inode*
+//you should iunlockput it when you finish using it.
+struct inode*
 create(char *path, short type, short major, short minor)
 {
   struct inode *ip, *dp;
@@ -252,7 +253,8 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if((type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+      || (type == T_SYMLINK && ip->type == T_SYMLINK))
       return ip;
     iunlockput(ip);
     return 0;
@@ -283,21 +285,15 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
-uint64
-sys_open(void)
-{
-  char path[MAXPATH];
-  int fd, omode;
+uint64 get_fd(char* path, int omode) {
+  int fd;
   struct file *f;
   struct inode *ip;
-  int n;
-
-  if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
-    return -1;
 
   begin_op(ROOTDEV);
 
   if(omode & O_CREATE){
+    //file type must be T_FILE. T_SYMLINK is created by symlink
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
       end_op(ROOTDEV);
@@ -320,6 +316,13 @@ sys_open(void)
     iunlockput(ip);
     end_op(ROOTDEV);
     return -1;
+  }
+
+  if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
+    readi(ip, 0, (uint64)path, 0, ip->size);
+    iunlockput(ip);
+    end_op(ROOTDEV);
+    return get_fd(path, omode);
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -346,6 +349,18 @@ sys_open(void)
   end_op(ROOTDEV);
 
   return fd;
+}
+
+uint64
+sys_open(void)
+{
+  char path[MAXPATH];
+  int omode;
+
+  if(argstr(0, path, MAXPATH) < 0 || argint(1, &omode) < 0)
+    return -1;
+
+  return get_fd(path, omode);
 }
 
 uint64
