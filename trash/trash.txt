@@ -1,0 +1,24 @@
+uint* addr;
+  uint depth;
+  if(bn < NDIRECT){
+    addr = ip->addrs + bn;
+    depth = 1;
+  } else {
+    bn -= NDIRECT;
+
+    if(bn < NINDIRECT){
+      addr = ip->addrs + NDIRECT;
+      depth = 2;
+    } else {
+      bn -= NINDIRECT;
+
+      if (bn < NINDIRECT2) {
+        addr = ip->addrs + NDIRECT + 1;
+        depth = 3;
+      } else {
+        panic("bmap: out of range");
+      }
+    }
+  }
+  bmap_sub(addr, ip->dev, bn, depth);
+  return *addr;

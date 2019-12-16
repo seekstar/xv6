@@ -27,7 +27,7 @@ struct inode {
   short minor;
   short nlink;
   uint size;
-  uint addrs[NDIRECT+2];  //addrs[NDIRECT] is singly-indirect block, addrs[NDIRECT + 1] is doubly-indirect block
+  uint addrs[NDIRECT+1];  //addrs[NDIRECT] is singly-indirect block, addrs[NDIRECT + 1] is doubly-indirect block
 };
 
 // map major device number to device functions.
