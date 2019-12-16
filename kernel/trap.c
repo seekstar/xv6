@@ -6,7 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
-#define DEBUG 1
+#define DEBUG 0
+#define DEBUG_PREPARE 0
 
 struct spinlock tickslock;
 uint ticks;
@@ -35,34 +36,56 @@ int prepare_va(uint64 va) {
   return pay_for_lazy(myproc()->pagetable, va);
 }
 void prepare(uint64 va, uint64 n) {
-  if (n > 0)
-    prepare_va(va + n - 1);
-  while (n > 0) {
+#if DEBUG_PREPARE
+  printf("prepare: va = %p, n = %d\n", va, n);
+  printf("before:");
+  vmprint(myproc()->pagetable);
+#endif
+  
+  if (n > 0) {
     prepare_va(va);
+    if (n > 1)
+      prepare_va(va + n - 1);
+  }
+  while (n > PGSIZE) {
     va += PGSIZE;
     n -= PGSIZE;
+    prepare_va(va);
   }
+#if DEBUG_PREPARE
+  printf("after:");
+  vmprint(myproc()->pagetable);
+#endif
 }
 int pay_for_lazy(pagetable_t pagetable, uint64 va) {
   struct proc* p = myproc();
-  printf("pay_for_lazy: p->ustack = %p\n", p->ustack);
-  if (p->sz <= va /*|| (p->ustack - 2 * PGSIZE <= va && va <= p->ustack + 2 * PGSIZE)*/
-      || (p->ustack - PGSIZE <= va && va < p->ustack)) {
+  //printf("pay_for_lazy: p = %p, p->ustack = %p, p->name = %s, va = %p\n", p, p->ustack, p->name, va);
+  if (p->sz <= va || (p->ustack - PGSIZE <= va && va < p->ustack)) {
     //access illegal memory
     p->killed = 1;
     return -1;
   }
-  pte_t* pte;
-  va = PGROUNDDOWN(va);
-  void* pa = kalloc();
-  if (!pa) {
-    p->killed = 1;
+  pte_t* pte = walk(pagetable, va, 1);
+  if (0 == pte) {
     return -1;
   }
-  memset(pa, 0, PGSIZE);
-  if((pte = walk(pagetable, va, 1)) == 0)
+  if (!(*pte & PTE_V)) {
+    va = PGROUNDDOWN(va);
+    void* pa = kalloc();
+    if (!pa) {
+      p->killed = 1;
       return -1;
-  *pte = PA2PTE(pa) | PTE_W | PTE_R | PTE_X | PTE_U | PTE_V;
+    }
+    memset(pa, 0, PGSIZE);
+    *pte = PA2PTE(pa) | PTE_W | PTE_R | PTE_X | PTE_U | PTE_V;
+#if DEBUG_PREPARE
+  } else {
+    printf("existed\n");
+  }
+  printf("pay_for_lazy: new pte = %p\n", *pte);
+#else
+  }
+#endif
   return 0;
 }
 

@@ -1949,7 +1949,7 @@ stacktest(char *s)
     char *sp = (char *) r_sp();
     sp -= PGSIZE;
     // the *sp should cause a trap.
-    printf("%s: stacktest: read below stack %p\n", *sp);
+    printf("%s: read below stack %p, sp = %p\n", s, *sp, sp);
     exit(1);
   } else if(pid < 0){
     printf("%s: fork failed\n", s);
@@ -2124,7 +2124,7 @@ main(int argc, char *argv[])
     void (*f)(char *);
     char *s;
   } tests[] = {
-    /*{reparent2, "reparent2"},
+    {reparent2, "reparent2"},
     {pgbug, "pgbug" },
     {sbrkbugs, "sbrkbugs" },
     // {badwrite, "badwrite" },
@@ -2149,11 +2149,11 @@ main(int argc, char *argv[])
     // {sbrkbasic, "sbrkbasic"},
     {sbrkmuch, "sbrkmuch"},
     {kernmem, "kernmem"},
-    {sbrkfail, "sbrkfail"},*/
+    {sbrkfail, "sbrkfail"},
     {sbrkarg, "sbrkarg"},
     {validatetest, "validatetest"},
     {stacktest, "stacktest"},
-    /*{opentest, "opentest"},
+    {opentest, "opentest"},
     {writetest, "writetest"},
     {writebig, "writebig"},
     {createtest, "createtest"},
@@ -2170,7 +2170,7 @@ main(int argc, char *argv[])
     {dirfile, "dirfile"},
     {iref, "iref"},
     {forktest, "forktest"},
-    {bigdir, "bigdir"}, // slow*/
+    {bigdir, "bigdir"}, // slow
     { 0, 0},
   };
     
