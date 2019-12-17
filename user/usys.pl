@@ -37,3 +37,6 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("ntas");
+
+entry("mmap");
+entry("munmap");

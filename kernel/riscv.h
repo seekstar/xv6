@@ -352,3 +352,12 @@ sfence_vma()
 
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
+
+
+
+#define PROT_READ 1
+#define PROT_WRITE 2
+
+#define MAP_PRIVATE 1
+#define MAP_SHARED 2
+

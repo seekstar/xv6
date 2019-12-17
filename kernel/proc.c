@@ -123,6 +123,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->mmap_info.info = p->mmap_info.base;
+  p->mmap_info.num = 0;
+
   return p;
 }
 
@@ -689,4 +692,18 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int add_mmap(struct mmap_info* mmap_info, void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+  mmap_info->info[mmap_info->num].addr = addr;
+  mmap_info->info[mmap_info->num].length = length;
+  mmap_info->info[mmap_info->num].prot = prot;
+  mmap_info->info[mmap_info->num].flags = flags;
+  mmap_info->info[mmap_info->num].fd = fd;
+  mmap_info->info[mmap_info->num].offset = offset;
+  if (mmap_info->num == INIT_MMAP_INFO_NODE_NUM) {
+    return -1;
+  }
+  ++mmap_info->num;
+  return 0;
 }

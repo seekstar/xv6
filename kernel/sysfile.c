@@ -483,3 +483,53 @@ sys_pipe(void)
   return 0;
 }
 
+//return address. or return -1 on error
+void *mmap(void *addr, size_t length, int prot, int flags,
+           int fd, off_t offset) {
+  struct proc* p = myproc();
+  if (addr) {
+    if (p->sz < addr + length) {
+      p->sz = addr + length;
+    }
+  } else {
+    addr = p->sz;
+    p->sz += length;
+  }
+  if (add_mmap(p, addr, length, prot, flags, fd, offset) < 0) {
+    return (void*)-1;
+  }
+  return addr;
+}
+
+uint64 sys_mmap(void) {
+  uint64 addr;
+  int length, prot, flags, fd, offset;
+
+  if (argaddr(0, &addr) < 0 || argint(1, &length) < 0 || argint(2, &prot) < 0 || argint(3, &flags) < 0 || argint(4, &fd) < 0 || argint(5, &offset) < 0)
+    return -1;
+
+  return (uint64)mmap((void*)addr, length, prot, flags, fd, offset);
+}
+
+uint64 munmap(void* addr, size_t length) {
+  struct proc* p = myproc();
+  if (p->mmap_info.num) {
+    //Can be optimized into a binary search
+    for (int i = 0; i < p->mmap_info.num; ++i) {
+      if (p->mmap_info.info[i].addr + p->mmap_info.info[i].length >= addr) {
+        
+      }
+    }
+  }
+  return -1;
+}
+
+uint64 sys_munmap(void) {
+  uint64 addr;
+  int length;
+
+  if (argaddr(0, &addr) < 0 || argint(1, &length) < 0) {
+    return -1;
+  }
+  return munmap((void*)addr, length);
+}
