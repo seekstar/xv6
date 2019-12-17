@@ -7,6 +7,8 @@
 #include "spinlock.h"
 #include "proc.h"
 
+#define DEBUG 0
+
 uint64
 sys_exit(void)
 {
@@ -98,8 +100,11 @@ sys_uptime(void)
 
 uint64
 sys_symlink(void) {
-  static char src[MAXPATH], path[MAXPATH];
+  char src[MAXPATH], path[MAXPATH];
   argstr(0, src, MAXPATH);
-  argstr(0, path, MAXPATH);
+  argstr(1, path, MAXPATH);
+#if DEBUG
+  printf("sys_symlink: src = %p(%s), path = %p(%s)\n", src, src, path, path);
+#endif
   return symlink(src, path);
 }

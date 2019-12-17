@@ -285,7 +285,20 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
-uint64 get_fd(char* path, int omode) {
+#define MAX_PRE 128
+struct file_id {
+  uint dev;           // Device number
+  uint inum;          // Inode number
+};
+struct file_id pre_inode[MAX_PRE];
+void get_file_id(struct file_id* fid, struct inode* ip) {
+  fid->dev = ip->dev;
+  fid->inum = ip->inum;
+}
+int the_same(struct file_id* fid, struct file_id* now) {
+  return fid->dev == now->dev && fid->inum == now->inum;
+}
+uint64 get_fd(char* path, int omode, int depth) {
   int fd;
   struct file *f;
   struct inode *ip;
@@ -320,9 +333,25 @@ uint64 get_fd(char* path, int omode) {
 
   if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
     readi(ip, 0, (uint64)path, 0, ip->size);
+
+    if (depth == MAX_PRE) {
+      //too deep
+      iunlockput(ip);
+      end_op(ROOTDEV);
+      return -1;
+    }
+    
+    get_file_id(pre_inode + depth, ip);
     iunlockput(ip);
     end_op(ROOTDEV);
-    return get_fd(path, omode);
+
+    for (int i = 0; i < depth; ++i) {
+      if (the_same(pre_inode + i, pre_inode + depth)) {
+        return -1;
+      }
+    }
+    
+    return get_fd(path, omode, depth + 1);
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -360,7 +389,7 @@ sys_open(void)
   if(argstr(0, path, MAXPATH) < 0 || argint(1, &omode) < 0)
     return -1;
 
-  return get_fd(path, omode);
+  return get_fd(path, omode, 0);
 }
 
 uint64

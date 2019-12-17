@@ -21,6 +21,8 @@
 #include "buf.h"
 #include "file.h"
 
+#define DEBUG 0
+
 #define min(a, b) ((a) < (b) ? (a) : (b))
 static void itrunc(struct inode*);
 // there should be one superblock per disk device, but we run with
@@ -693,11 +695,17 @@ nameiparent(char *path, char *name)
 }
 
 int symlink(char* src, char* path) {
+  begin_op(ROOTDEV);
   struct inode* ip = create(path, T_SYMLINK, 0, 0);
+#if DEBUG
+  printf("symlink: ip = %p\n", ip);
+#endif
   if (0 == ip) {
+    end_op(ROOTDEV);
     return -1;
   }
   writei(ip, 0, (uint64)src, 0, strlen(src));
   iunlockput(ip);
+  end_op(ROOTDEV);
   return 0;
 }
