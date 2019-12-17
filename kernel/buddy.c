@@ -146,12 +146,17 @@ bd_malloc(uint64 nbytes)
   return base;
 }
 
+//bi: block index
+int get_buddy(int bi) {
+  return (bi % 2 == 0) ? bi+1 : bi-1;
+}
 // Find the size of the block that base points to.
+// In other words, find the biggest k that not be splited
 int
 size(char *base) {
   for (int k = 0; k < nsizes; ++k) {
-    int ind = blk_index(k, base);
-    if (bit_isset(bd_sizes[k].alloc, ind) || bit_isset(bd_sizes[k].alloc, ind + 1)) {
+    int bi = blk_index(k, base);
+    if (bit_isset(bd_sizes[k].alloc, bi)) {
       return k;
     }
   }
@@ -168,7 +173,7 @@ bd_free(void *base) {
   acquire(&lock);
   for (k = size(base); k < MAXSIZE; k++) {
     int bi = blk_index(k, base);
-    int buddy = (bi % 2 == 0) ? bi+1 : bi-1;
+    int buddy = get_buddy(bi);
     bit_clear(bd_sizes[k].alloc, bi);  // free base at size k
     if (bit_isset(bd_sizes[k].alloc, buddy)) {  // is buddy allocated?
       break;   // break out of loop
