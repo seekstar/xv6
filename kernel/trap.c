@@ -32,6 +32,33 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+//Only for mmaped memory
+int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
+  struct mmap_info* cur = find_mmap_info_node(&p->head, r_stval());
+  if (!cur) {
+    //Not mmaped memory.
+    //Under the current circumstances, this is illegal memory
+    if (killer)
+      p->killed = 1;
+    return -1;
+  }
+  pte_t* pte = walk(p->pagetable, va, 1);
+  if (0 == pte) {
+    return -1;
+  }
+  if (!(*pte & PTE_V)) {
+    va = PGROUNDDOWN(va);
+    void* pa = kalloc();
+    if (!pa) {
+      p->killed = 1;
+      return -1;
+    }
+    readfile_offset(p->ofile[cur->fd], cur->offset + ((char*)va - (char*)cur->addr), 0, (uint64)pa, PGSIZE);
+    *pte = PA2PTE(pa) | cur->prot | PTE_U | PTE_V;
+  }
+  return 0;
+}
+
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -53,7 +80,8 @@ usertrap(void)
   // save user program counter.
   p->tf->epc = r_sepc();
   
-  if(r_scause() == 8){
+  uint64 scause = r_scause();
+  if(scause == 8){
     // system call
 
     if(p->killed)
@@ -68,6 +96,10 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (0xf == scause || 0xd == scause) {
+    //page fault
+    //The reason must be mmap
+    pay_for_lazy_mmap(p, r_stval(), 1);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {

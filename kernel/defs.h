@@ -206,3 +206,11 @@ void lst_push(struct list*, void *);
 void *lst_pop(struct list*);
 void lst_print(struct list*);
 int lst_empty(struct list*);
+
+
+pte_t *
+walk(pagetable_t pagetable, uint64 va, int alloc);
+
+struct mmap_info* find_mmap_info_node(struct mmap_info* head, uint64 addr);
+int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n);
+int writefile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n);

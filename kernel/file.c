@@ -101,6 +101,14 @@ filestat(struct file *f, uint64 addr)
   return -1;
 }
 
+int fileread_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n) {
+  int r;
+  ilock(f->ip);
+  if((r = readi(f->ip, user_dst, dst, offset, n)) > 0)
+    f->off += r;
+  iunlock(f->ip);
+  return r;
+}
 // Read from file f.
 // addr is a user virtual address.
 int
@@ -118,10 +126,7 @@ fileread(struct file *f, uint64 addr, int n)
       return -1;
     r = devsw[f->major].read(f, 1, addr, n);
   } else if(f->type == FD_INODE){
-    ilock(f->ip);
-    if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
-      f->off += r;
-    iunlock(f->ip);
+    r = fileread_inode(f, f->off, 0, addr, n);
   } else {
     panic("fileread");
   }
@@ -129,54 +134,76 @@ fileread(struct file *f, uint64 addr, int n)
   return r;
 }
 
+int filewrite_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n) {
+  // write a few blocks at a time to avoid exceeding
+  // the maximum log transaction size, including
+  // i-node, indirect block, allocation blocks,
+  // and 2 blocks of slop for non-aligned writes.
+  // this really belongs lower down, since writei()
+  // might be writing a device like the console.
+  int r;
+  int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+  int i = 0;
+  while(i < n){
+    int n1 = n - i;
+    if(n1 > max)
+      n1 = max;
+
+    begin_op(f->ip->dev);
+    ilock(f->ip);
+    if ((r = writei(f->ip, user_dst, dst + i, f->off, n1)) > 0)
+      f->off += r;
+    iunlock(f->ip);
+    end_op(f->ip->dev);
+
+    if(r < 0)
+      break;
+    if(r != n1)
+      panic("short filewrite");
+    i += r;
+  }
+  return i == n ? n : -1;
+}
 // Write to file f.
 // addr is a user virtual address.
 int
 filewrite(struct file *f, uint64 addr, int n)
 {
-  int r, ret = 0;
-
   if(f->writable == 0)
     return -1;
 
-  if(f->type == FD_PIPE){
-    ret = pipewrite(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
-      return -1;
-    ret = devsw[f->major].write(f, 1, addr, n);
-  } else if(f->type == FD_INODE){
-    // write a few blocks at a time to avoid exceeding
-    // the maximum log transaction size, including
-    // i-node, indirect block, allocation blocks,
-    // and 2 blocks of slop for non-aligned writes.
-    // this really belongs lower down, since writei()
-    // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
-    int i = 0;
-    while(i < n){
-      int n1 = n - i;
-      if(n1 > max)
-        n1 = max;
-
-      begin_op(f->ip->dev);
-      ilock(f->ip);
-      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
-        f->off += r;
-      iunlock(f->ip);
-      end_op(f->ip->dev);
-
-      if(r < 0)
-        break;
-      if(r != n1)
-        panic("short filewrite");
-      i += r;
-    }
-    ret = (i == n ? n : -1);
-  } else {
-    panic("filewrite");
+  switch (f->type) {
+    case FD_PIPE:
+      return pipewrite(f->pipe, addr, n);
+    case FD_DEVICE:
+      if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
+        return -1;
+      return devsw[f->major].write(f, 1, addr, n);
+    case FD_INODE:
+      return filewrite_inode(f, f->off, 1, addr, n);
+    default:
+      panic("filewrite");
   }
-
-  return ret;
 }
 
+//Only for FD_INODE
+//f->off is not affected
+int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n) {
+  if(f->readable == 0)
+    return -1;
+  
+  if (f->type != FD_INODE)
+    panic("readfile_offset");
+
+  return fileread_inode(f, offset, user_dst, dst, n);
+}
+
+int writefile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n) {
+  if(f->writable == 0)
+    return -1;
+
+  if(f->type != FD_INODE)
+    panic("writefile_offset");
+
+  return filewrite_inode(f, offset, user_dst, dst, n);
+}

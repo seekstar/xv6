@@ -483,8 +483,8 @@ sys_pipe(void)
   return 0;
 }
 
-//return address. or return -1 on error
-void *mmap(void *addr, size_t length, int prot, int flags,
+//return address or ~(uint64)0 on error
+uint64 mmap(uint64 addr, size_t length, int prot, int flags,
            int fd, off_t offset) {
   struct proc* p = myproc();
   if (addr) {
@@ -495,8 +495,8 @@ void *mmap(void *addr, size_t length, int prot, int flags,
     addr = p->sz;
     p->sz += length;
   }
-  if (add_mmap(p, addr, length, prot, flags, fd, offset) < 0) {
-    return (void*)-1;
+  if (add_mmap(&p->head, addr, length, prot, flags, fd, offset) < 0) {
+    return ~(uint64)0;
   }
   return addr;
 }
@@ -508,20 +508,40 @@ uint64 sys_mmap(void) {
   if (argaddr(0, &addr) < 0 || argint(1, &length) < 0 || argint(2, &prot) < 0 || argint(3, &flags) < 0 || argint(4, &fd) < 0 || argint(5, &offset) < 0)
     return -1;
 
-  return (uint64)mmap((void*)addr, length, prot, flags, fd, offset);
+  return mmap(addr, length, prot, flags, fd, offset);
 }
 
-uint64 munmap(void* addr, size_t length) {
-  struct proc* p = myproc();
-  if (p->mmap_info.num) {
-    //Can be optimized into a binary search
-    for (int i = 0; i < p->mmap_info.num; ++i) {
-      if (p->mmap_info.info[i].addr + p->mmap_info.info[i].length >= addr) {
-        
-      }
+//return the node, or 0 if not found
+struct mmap_info* find_mmap_info_node(struct mmap_info* head, uint64 addr) {
+  for (; head; head = head->nxt) {
+    if (head->length && head->addr <= addr && addr < head->addr + head->length) {
+      return head;
     }
   }
-  return -1;
+  return 0;
+}
+//Return 0 on success, -1 on error
+int munmap(uint64 addr, size_t length) {
+  struct proc* p = myproc();
+  struct mmap_info* cur = find_mmap_info_node(&p->head, addr);
+  if (!cur) {
+    return -1;
+  }
+
+  if (cur->flags & MAP_SHARED) {
+    writefile_offset(p->ofile[cur->fd], cur->offset + (addr - cur->addr), 1, addr, length);
+  }
+  uvmunmap(p->pagetable, addr, length, 1);
+  
+  if (cur->addr == addr) {
+    cur->addr += length;
+    cur->length -= length;
+  } else if (cur->addr + cur->length == addr + length) {
+    cur->length -= length;
+  } else {
+    panic("munmap\n");
+  }
+  return 0;
 }
 
 uint64 sys_munmap(void) {
@@ -531,5 +551,5 @@ uint64 sys_munmap(void) {
   if (argaddr(0, &addr) < 0 || argint(1, &length) < 0) {
     return -1;
   }
-  return munmap((void*)addr, length);
+  return munmap(addr, length);
 }

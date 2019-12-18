@@ -355,8 +355,8 @@ typedef uint64 *pagetable_t; // 512 PTEs
 
 
 
-#define PROT_READ 1
-#define PROT_WRITE 2
+#define PROT_READ PTE_R
+#define PROT_WRITE PTE_W
 
 #define MAP_PRIVATE 1
 #define MAP_SHARED 2
