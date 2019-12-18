@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+#define DEBUG 1
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -53,7 +55,24 @@ int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
       p->killed = 1;
       return -1;
     }
-    readfile_offset(p->ofile[cur->fd], cur->offset + ((char*)va - (char*)cur->addr), 0, (uint64)pa, PGSIZE);
+    int r = readfile_offset(p->ofile[cur->fd], cur->offset + (va - cur->addr), 0, (uint64)pa, PGSIZE);
+    if (r < 0) {
+      return -1;
+    }
+    if (r < PGSIZE) {
+      memset(pa + r, 0, PGSIZE - r);
+    }
+#if DEBUG
+    printf("pay_for_lazy_mmap: read to %p\n", pa);
+    for (size_t i = 0; i < PGSIZE; ++i) {
+      char ch = ((char*)pa)[i];
+      if (ch)
+        printf("%c", ch);
+      else
+        printf("\\0");
+    }
+    printf("\n");
+#endif
     *pte = PA2PTE(pa) | cur->prot | PTE_U | PTE_V;
   }
   return 0;

@@ -198,12 +198,49 @@ int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n
   return fileread_inode(f, offset, user_dst, dst, n);
 }
 
-int writefile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n) {
+//Return the number of bytes writen, or -1 on error
+int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int n) {
   if(f->writable == 0)
     return -1;
 
   if(f->type != FD_INODE)
     panic("writefile_offset");
 
-  return filewrite_inode(f, offset, user_dst, dst, n);
+  return filewrite_inode(f, offset, user_src, src, n);
+}
+
+//only write [va, end_of_page(va)]
+//Return the number of bytes written, or -1 on error
+int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va) {
+  pte_t* pte = walk(p->pagetable, va, 0);
+  if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {
+    return writefile_offset(p->ofile[vma->fd], vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
+  }
+  return 0;
+}
+//Return 0 on success, -1 on error
+//va is not page aligned, but (va + n) is page aligned
+int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
+  if (0 == n) return 0;
+  struct file* f = p->ofile[vma->fd];
+  if (0 == f->writable) {
+    return -1;
+  }
+  if (f->type != FD_INODE)
+    panic("write_dirty");
+  
+  n += va;
+  if (n != PGROUNDDOWN(n)) {
+    panic("write_dirty: va + n not page aligned");
+  }
+  if (va != PGROUNDDOWN(va)) {
+    if (write_dirty_page(vma, p, va) < 0)
+      return -1;
+    va = PGROUNDUP(va);
+  }
+  for (; va < n; n += PGSIZE) {
+    if (write_dirty_page(vma, p, va) < 0)
+      return -1;
+  }
+  return 0;
 }

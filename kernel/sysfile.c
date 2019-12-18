@@ -16,6 +16,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+#define DEBUG 1
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -498,6 +500,11 @@ uint64 mmap(uint64 addr, size_t length, int prot, int flags,
   if (add_mmap(&p->head, addr, length, prot, flags, fd, offset) < 0) {
     return ~(uint64)0;
   }
+  filedup(p->ofile[fd]);
+#if DEBUG
+  printf("mmaped addr = %p, vma:\n", addr);
+  print_vma_list(&p->head);
+#endif
   return addr;
 }
 
@@ -529,7 +536,9 @@ int munmap(uint64 addr, size_t length) {
   }
 
   if (cur->flags & MAP_SHARED) {
-    writefile_offset(p->ofile[cur->fd], cur->offset + (addr - cur->addr), 1, addr, length);
+    //writefile_offset(p->ofile[cur->fd], cur->offset + (addr - cur->addr), 1, addr, length);
+    if (write_dirty(cur, p, addr, length) < 0)
+      return -1;
   }
   uvmunmap(p->pagetable, addr, length, 1);
   
@@ -541,6 +550,13 @@ int munmap(uint64 addr, size_t length) {
   } else {
     panic("munmap\n");
   }
+  if (0 == cur->length) {
+    fileclose(p->ofile[cur->fd]);
+  }
+#if DEBUG
+  printf("unmmaped addr = %p, vma:\n", addr);
+  print_vma_list(&p->head);
+#endif
   return 0;
 }
 

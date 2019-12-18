@@ -712,3 +712,12 @@ int add_mmap(struct mmap_info* head, uint64 addr, size_t length, int prot, int f
   head->offset = offset;
   return 0;
 }
+
+void vmaprint(struct mmap_info* cur) {
+  printf("addr = %p, length = %d, prot = %p, flags = %p, fd = %d, offset = %p\n", cur->addr, cur->length, cur->prot, cur->flags, cur->fd, cur->offset);
+}
+void print_vma_list(struct mmap_info* head) {
+  for (; head; head = head->nxt) {
+    vmaprint(head);
+  }
+}

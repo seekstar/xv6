@@ -92,6 +92,7 @@ struct mmap_info {
   off_t offset;
   struct mmap_info* nxt;
 };
+
 // Per-process state
 struct proc {
   struct spinlock lock;
