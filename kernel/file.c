@@ -13,6 +13,8 @@
 #include "stat.h"
 #include "proc.h"
 
+#define DEBUG 1
+
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
@@ -217,11 +219,14 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
 int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
   pte_t* pte = walk(p->pagetable, va, 0);
   if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {
+#if DEBUG
+    printf("write_dirty_page: va = %p, %d bytes written\n", va, n);
+#endif
     return writefile_offset(vma->f, vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
   }
   return 0;
 }
-//Write [va, va + n) to disk. However, if a page is not dirty, ignore it.
+//Write [va, va + n) to disk. However, pages that are not dirty will be ignored
 //Return 0 on success, -1 on error
 int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
   if (0 == n) return 0;

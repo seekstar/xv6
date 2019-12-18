@@ -219,3 +219,5 @@ int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n);
 void print_vma_list(struct mmap_info* head);
 
 int clear_vma(struct proc* p);
+
+void print_block(char* pa, size_t n);

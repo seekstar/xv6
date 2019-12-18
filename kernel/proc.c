@@ -698,6 +698,12 @@ procdump(void)
 
 // Return 0 on success, -1 on error
 int add_mmap(struct mmap_info* cur, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset) {
+  if (
+    ((prot & PROT_READ) && !f->readable) || 
+    ((prot & PROT_WRITE) && !(flags & MAP_PRIVATE) && !f->writable)
+  ) {
+    return -1;
+  }
   for (; cur->length && cur->nxt; cur = cur->nxt);
   if (!cur->nxt && cur->length) {
     if (0 == (cur->nxt = bd_malloc(sizeof(struct mmap_info))))
