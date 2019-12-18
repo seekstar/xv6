@@ -55,7 +55,7 @@ int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
       p->killed = 1;
       return -1;
     }
-    int r = readfile_offset(p->ofile[cur->fd], cur->offset + (va - cur->addr), 0, (uint64)pa, PGSIZE);
+    int r = readfile_offset(cur->f, cur->offset + (va - cur->addr), 0, (uint64)pa, PGSIZE);
     if (r < 0) {
       return -1;
     }
@@ -63,7 +63,7 @@ int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
       memset(pa + r, 0, PGSIZE - r);
     }
 #if DEBUG
-    printf("pay_for_lazy_mmap: read to %p\n", pa);
+    printf("pay_for_lazy_mmap: read to va: %p\tpa: %p\n", va, pa);
     for (size_t i = 0; i < PGSIZE; ++i) {
       char ch = ((char*)pa)[i];
       if (ch)

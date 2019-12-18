@@ -485,24 +485,30 @@ sys_pipe(void)
   return 0;
 }
 
+//If addr != 0, addr have to be page aligned
+//Will padding 0 after the end of mmapped memory until the next page.
 //return address or ~(uint64)0 on error
 uint64 mmap(uint64 addr, size_t length, int prot, int flags,
            int fd, off_t offset) {
   struct proc* p = myproc();
   if (addr) {
+    if (addr != PGROUNDDOWN(addr)) {
+      panic("mmap: addr is not page aligned!");
+    }
     if (p->sz < addr + length) {
       p->sz = addr + length;
     }
+    p->sz = PGROUNDUP(p->sz);
   } else {
-    addr = p->sz;
-    p->sz += length;
+    addr = PGROUNDUP(p->sz);
+    p->sz = PGROUNDUP(addr + length);
   }
-  if (add_mmap(&p->head, addr, length, prot, flags, fd, offset) < 0) {
+
+  if (add_mmap(&p->head, addr, length, prot, flags, p->ofile[fd], offset) < 0) {
     return ~(uint64)0;
   }
-  filedup(p->ofile[fd]);
 #if DEBUG
-  printf("mmaped addr = %p, vma:\n", addr);
+  printf("mmaped addr = %p, f->ref = %d, vma:\n", addr, p->ofile[fd]->ref);
   print_vma_list(&p->head);
 #endif
   return addr;
@@ -551,7 +557,7 @@ int munmap(uint64 addr, size_t length) {
     panic("munmap\n");
   }
   if (0 == cur->length) {
-    fileclose(p->ofile[cur->fd]);
+    fileclose(cur->f);
   }
 #if DEBUG
   printf("unmmaped addr = %p, vma:\n", addr);

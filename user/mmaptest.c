@@ -6,6 +6,8 @@
 #include "kernel/fs.h"
 #include "user/user.h"
 
+#define DEBUG 1
+
 void mmap_test();
 void fork_test();
 char buf[BSIZE];
@@ -119,10 +121,16 @@ mmap_test(void)
   // should be able to map file opened read-only with private writable
   // mapping
   p = mmap(0, PGSIZE*2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+#if DEBUG
+  printf("mmaped 2\n");
+#endif
   if (p == MAP_FAILED)
     err("mmap (2)");
   if (close(fd) == -1)
     err("close");
+#if DEBUG
+  printf("In mmap (2), fd is closed\n");
+#endif
   _v1(p);
   for (i = 0; i < PGSIZE*2; i++)
     p[i] = 'Z';

@@ -68,6 +68,9 @@ fileclose(struct file *f)
     release(&ftable.lock);
     return;
   }
+#if DEBUG
+  printf("file closed\n");
+#endif
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
@@ -209,37 +212,42 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
   return filewrite_inode(f, offset, user_src, src, n);
 }
 
-//only write [va, end_of_page(va)]
+//[va, va + n - 1) have to be in the same page
 //Return the number of bytes written, or -1 on error
-int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va) {
+int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
   pte_t* pte = walk(p->pagetable, va, 0);
   if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {
-    return writefile_offset(p->ofile[vma->fd], vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
+    return writefile_offset(vma->f, vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
   }
   return 0;
 }
+//Write [va, va + n) to disk. However, if a page is not dirty, ignore it.
 //Return 0 on success, -1 on error
-//va is not page aligned, but (va + n) is page aligned
 int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
   if (0 == n) return 0;
-  struct file* f = p->ofile[vma->fd];
-  if (0 == f->writable) {
+  if (0 == vma->f->writable) {
     return -1;
   }
-  if (f->type != FD_INODE)
+  if (vma->f->type != FD_INODE)
     panic("write_dirty");
   
   n += va;
-  if (n != PGROUNDDOWN(n)) {
-    panic("write_dirty: va + n not page aligned");
-  }
-  if (va != PGROUNDDOWN(va)) {
-    if (write_dirty_page(vma, p, va) < 0)
+  uint64 tmp = PGROUNDUP(va);
+  if (va != tmp) {
+    if (write_dirty_page(vma, p, va, tmp - va) < 0)
       return -1;
-    va = PGROUNDUP(va);
+    va = tmp;
   }
-  for (; va < n; n += PGSIZE) {
-    if (write_dirty_page(vma, p, va) < 0)
+  if (va < n) {
+    tmp = PGROUNDDOWN(n);
+    if (n != tmp) {
+      if (write_dirty_page(vma, p, tmp, n - tmp) < 0)
+        return -1;
+      n = tmp;
+    }
+  }
+  for (; va < n; va += PGSIZE) {
+    if (write_dirty_page(vma, p, va, PGSIZE) < 0)
       return -1;
   }
   return 0;

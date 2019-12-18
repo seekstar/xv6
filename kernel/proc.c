@@ -328,6 +328,8 @@ exit(int status)
   if(p == initproc)
     panic("init exiting");
 
+  clear_vma(p);
+
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
@@ -695,26 +697,42 @@ procdump(void)
 }
 
 // Return 0 on success, -1 on error
-int add_mmap(struct mmap_info* head, uint64 addr, size_t length, int prot, int flags, int fd, off_t offset) {
-  for (; head->length && head->nxt; head = head->nxt);
-  if (!head->nxt && head->length) {
-    head->nxt = bd_malloc(sizeof(struct mmap_info));
-    head = head->nxt;
+int add_mmap(struct mmap_info* cur, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset) {
+  for (; cur->length && cur->nxt; cur = cur->nxt);
+  if (!cur->nxt && cur->length) {
+    if (0 == (cur->nxt = bd_malloc(sizeof(struct mmap_info))))
+      return -1;
+    cur = cur->nxt;
   }
-  if (!head) {
-    return -1;
+  cur->addr = addr;
+  cur->length = length;
+  cur->prot = prot;
+  cur->flags = flags;
+  cur->f = f;
+  cur->offset = offset;
+  filedup(f);
+
+  return 0;
+}
+
+//Return 0 on success, -1 on error
+int clear_vma(struct proc* p) {
+  for (struct mmap_info* cur = &p->head; cur;) {
+    if (cur->flags & MAP_SHARED) {
+      if (write_dirty(cur, p, cur->addr, cur->length) < 0)
+        return -1;
+    }
+    uvmunmap(p->pagetable, cur->addr, cur->length, 1);
+  
+    struct mmap_info* tmp = cur;
+    cur = cur->nxt;
+    bd_free(tmp);
   }
-  head->addr = addr;
-  head->length = length;
-  head->prot = prot;
-  head->flags = flags;
-  head->fd = fd;
-  head->offset = offset;
   return 0;
 }
 
 void vmaprint(struct mmap_info* cur) {
-  printf("addr = %p, length = %d, prot = %p, flags = %p, fd = %d, offset = %p\n", cur->addr, cur->length, cur->prot, cur->flags, cur->fd, cur->offset);
+  printf("addr = %p, length = %d, prot = %p, flags = %p, f = %p, offset = %p\n", cur->addr, cur->length, cur->prot, cur->flags, cur->f, cur->offset);
 }
 void print_vma_list(struct mmap_info* head) {
   for (; head; head = head->nxt) {

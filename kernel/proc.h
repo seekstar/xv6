@@ -88,7 +88,7 @@ struct mmap_info {
   size_t length; //if 0, it is a free infomation block
   int prot;
   int flags;
-  int fd;
+  struct file* f;
   off_t offset;
   struct mmap_info* nxt;
 };
@@ -117,4 +117,4 @@ struct proc {
 
   struct mmap_info head;
 };
-int add_mmap(struct mmap_info* mmap_info, uint64 addr, size_t length, int prot, int flags, int fd, off_t offset);
+int add_mmap(struct mmap_info* head, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset);

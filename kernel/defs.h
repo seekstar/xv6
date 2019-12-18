@@ -217,3 +217,5 @@ int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n
 int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n);
 
 void print_vma_list(struct mmap_info* head);
+
+int clear_vma(struct proc* p);
