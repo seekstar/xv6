@@ -107,7 +107,7 @@ filestat(struct file *f, uint64 addr)
 }
 
 int fileread_inode(struct file* f, int user_dst, uint64 dst, int n) {
-  int r = read_inode(f->ip, user_dst, dst, f->off, n);
+  int r = read_inode(f->ip, f->off, user_dst, dst, n);
   if(r > 0)
     f->off += r;
   return r;

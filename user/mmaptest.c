@@ -185,7 +185,7 @@ mmap_test(void)
 #if DEBUG
     printf("%c", b);
 #endif
-    if (b != 'A')
+    if (b != 'Z')
       err("file does not contain modifications");
   }
 #if DEBUG
@@ -198,6 +198,9 @@ mmap_test(void)
   if (munmap(p+PGSIZE*2, PGSIZE) == -1)
     err("munmap (4)");
 
+#if DEBUG
+  printf("mmap (4) done\n");
+#endif
   //
   // mmap two files at the same time.
   //
