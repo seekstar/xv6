@@ -14,8 +14,6 @@ static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uin
 int
 exec(char *path, char **argv)
 {
-  printf("exec: path = %s, argv[0] = %s\n", path, argv[0]);
-  
   char *s, *last;
   int i, off;
   uint64 argc, sz, sp, ustack[MAXARG+1];
@@ -119,9 +117,9 @@ exec(char *path, char **argv)
 
 #if DEBUG
   vmprint(pagetable);
+  printf("At the end of exec: p = %p, p->ustack = %p, p->name = %s\n", p, p->ustack, p->name);
 #endif
 
-  printf("At the end of exec: p = %p, p->ustack = %p, p->name = %s\n", p, p->ustack, p->name);
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

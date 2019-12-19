@@ -1949,7 +1949,7 @@ stacktest(char *s)
     char *sp = (char *) r_sp();
     sp -= PGSIZE;
     // the *sp should cause a trap.
-    printf("%s: read below stack %p, sp = %p\n", s, *sp, sp);
+    printf("%s: stacktest: read below stack %p\n", *sp);
     exit(1);
   } else if(pid < 0){
     printf("%s: fork failed\n", s);
@@ -1970,16 +1970,9 @@ pgbug(char *s)
 {
   char *argv[1];
   argv[0] = 0;
-
-  //printf("pgbug: before exec, (char*)0xeaeb0b5b00002f5e = %s\n", (char*)0xeaeb0b5b00002f5e);
-
   exec((char*)0xeaeb0b5b00002f5e, argv);
 
-  printf("pgbug: exec done\n");
-
   pipe((int*)0xeaeb0b5b00002f5e);
-
-  printf("pgbug: pipe done\n");
 
   exit(0);
 }
