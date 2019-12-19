@@ -495,17 +495,16 @@ uint64 mmap(uint64 addr, size_t length, int prot, int flags,
     if (addr != PGROUNDDOWN(addr)) {
       panic("mmap: addr is not page aligned!");
     }
-    if (p->sz < addr + length) {
-      p->sz = addr + length;
-    }
-    p->sz = PGROUNDUP(p->sz);
   } else {
     addr = PGROUNDUP(p->sz);
-    p->sz = PGROUNDUP(addr + length);
   }
 
   if (add_mmap(&p->head, addr, length, prot, flags, p->ofile[fd], offset) < 0) {
     return ~(uint64)0;
+  }
+  uint64 tmp = PGROUNDUP(addr + length);
+  if (p->sz < tmp) {
+    p->sz = tmp;
   }
 #if DEBUG
   printf("mmaped addr = %p, f->ref = %d, vma:\n", addr, p->ofile[fd]->ref);
