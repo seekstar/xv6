@@ -211,12 +211,12 @@ int lst_empty(struct list*);
 pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc);
 
-struct mmap_info* find_mmap_info_node(struct mmap_info* head, uint64 addr);
+struct vma_node* find_mmap_info_node(struct vma_node* head, uint64 addr);
 int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n);
 //int writefile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n);
-int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n);
+int write_dirty(struct vma_node* vma, struct proc* p, uint64 va, uint64 n);
 
-void print_vma_list(struct mmap_info* head);
+void print_vma(struct vma_node* vma);
 
 int clear_vma(struct proc* p);
 

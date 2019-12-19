@@ -82,15 +82,14 @@ struct trapframe {
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-#define INIT_MMAP_INFO_NODE_NUM 128
-struct mmap_info {
+#define MAX_VMA 128
+struct vma_node {
   uint64 addr;
   size_t length; //if 0, it is a free infomation block
   int prot;
   int flags;
   struct file* f;
   off_t offset;
-  struct mmap_info* nxt;
 };
 
 // Per-process state
@@ -115,6 +114,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  struct mmap_info head;
+  struct vma_node vma[MAX_VMA];
 };
-int add_mmap(struct mmap_info* head, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset);
+int add_mmap(struct vma_node* vma, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset);

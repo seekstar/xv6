@@ -266,7 +266,7 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
 
 //[va, va + n - 1) have to be in the same page
 //Return the number of bytes written, or -1 on error
-int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
+int write_dirty_page(struct vma_node* vma, struct proc* p, uint64 va, uint64 n) {
   pte_t* pte = walk(p->pagetable, va, 0);
   int ret = 0;
   if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {
@@ -281,7 +281,7 @@ int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n)
 }
 //Write [va, va + n) to disk. However, pages that are not dirty will be ignored
 //Return 0 on success, -1 on error
-int write_dirty(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
+int write_dirty(struct vma_node* vma, struct proc* p, uint64 va, uint64 n) {
   if (0 == n) return 0;
   if (0 == vma->f->writable) {
     return -1;

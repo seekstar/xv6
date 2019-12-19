@@ -499,7 +499,7 @@ uint64 mmap(uint64 addr, size_t length, int prot, int flags,
     addr = PGROUNDUP(p->sz);
   }
 
-  if (add_mmap(&p->head, addr, length, prot, flags, p->ofile[fd], offset) < 0) {
+  if (add_mmap(p->vma, addr, length, prot, flags, p->ofile[fd], offset) < 0) {
     return ~(uint64)0;
   }
   uint64 tmp = PGROUNDUP(addr + length);
@@ -508,7 +508,7 @@ uint64 mmap(uint64 addr, size_t length, int prot, int flags,
   }
 #if DEBUG
   printf("mmaped addr = %p, f->ref = %d, vma:\n", addr, p->ofile[fd]->ref);
-  print_vma_list(&p->head);
+  print_vma(p->vma);
 #endif
   return addr;
 }
@@ -524,10 +524,10 @@ uint64 sys_mmap(void) {
 }
 
 //return the node, or 0 if not found
-struct mmap_info* find_mmap_info_node(struct mmap_info* head, uint64 addr) {
-  for (; head; head = head->nxt) {
-    if (head->length && head->addr <= addr && addr < head->addr + head->length) {
-      return head;
+struct vma_node* find_mmap_info_node(struct vma_node* vma, uint64 addr) {
+  for (struct vma_node* ed = vma + MAX_VMA; vma < ed; ++vma) {
+    if (vma->length && vma->addr <= addr && addr < vma->addr + vma->length) {
+      return vma;
     }
   }
   return 0;
@@ -535,7 +535,7 @@ struct mmap_info* find_mmap_info_node(struct mmap_info* head, uint64 addr) {
 //Return 0 on success, -1 on error
 int munmap(uint64 addr, size_t length) {
   struct proc* p = myproc();
-  struct mmap_info* cur = find_mmap_info_node(&p->head, addr);
+  struct vma_node* cur = find_mmap_info_node(p->vma, addr);
   if (!cur) {
     return -1;
   }
@@ -559,7 +559,7 @@ int munmap(uint64 addr, size_t length) {
   }
 #if DEBUG
   printf("unmmaped addr = %p, vma:\n", addr);
-  print_vma_list(&p->head);
+  print_vma(p->vma);
 #endif
   return 0;
 }

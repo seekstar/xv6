@@ -36,7 +36,7 @@ trapinithart(void)
 
 //Only for mmaped memory
 int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
-  struct mmap_info* cur = find_mmap_info_node(&p->head, r_stval());
+  struct vma_node* cur = find_mmap_info_node(p->vma, r_stval());
   if (!cur) {
     //Not mmaped memory.
     //Under the current circumstances, this is illegal memory

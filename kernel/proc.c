@@ -123,8 +123,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  p->head.length = 0;
-  p->head.nxt = 0;
+  for (int i = 0; i < MAX_VMA; ++i) {
+    p->vma[i].length = 0;
+  }
 
   return p;
 }
@@ -697,26 +698,24 @@ procdump(void)
 }
 
 // Return 0 on success, -1 on error
-int add_mmap(struct mmap_info* cur, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset) {
+int add_mmap(struct vma_node* vma, uint64 addr, size_t length, int prot, int flags, struct file* f, off_t offset) {
   if (
     ((prot & PROT_READ) && !f->readable) || 
     ((prot & PROT_WRITE) && !(flags & MAP_PRIVATE) && !f->writable)
   ) {
     return -1;
   }
-  for (; cur->length && cur->nxt; cur = cur->nxt);
-  if (!cur->nxt && cur->length) {
-    if (0 == (cur->nxt = bd_malloc(sizeof(struct mmap_info))))
-      return -1;
-    cur = cur->nxt;
-    cur->nxt = 0;
-  }
-  cur->addr = addr;
-  cur->length = length;
-  cur->prot = prot;
-  cur->flags = flags;
-  cur->f = f;
-  cur->offset = offset;
+  struct vma_node* ed = vma + MAX_VMA;
+  for (; vma->length && vma < ed; ++vma);
+  if (vma == ed)
+    return -1;
+
+  vma->addr = addr;
+  vma->length = length;
+  vma->prot = prot;
+  vma->flags = flags;
+  vma->f = f;
+  vma->offset = offset;
   filedup(f);
 
   return 0;
@@ -724,25 +723,21 @@ int add_mmap(struct mmap_info* cur, uint64 addr, size_t length, int prot, int fl
 
 //Return 0 on success, -1 on error
 int clear_vma(struct proc* p) {
-  for (struct mmap_info* cur = &p->head; cur;) {
+  for (struct vma_node* cur = p->vma; cur != p->vma + MAX_VMA; ++cur) {
     if (cur->flags & MAP_SHARED) {
       if (write_dirty(cur, p, cur->addr, cur->length) < 0)
         return -1;
     }
     uvmunmap_lazy(p->pagetable, cur->addr, cur->length, 1);
-  
-    struct mmap_info* tmp = cur;
-    cur = cur->nxt;
-    bd_free(tmp);
   }
   return 0;
 }
 
-void vmaprint(struct mmap_info* cur) {
+void vmaprint(struct vma_node* cur) {
   printf("addr = %p, length = %d, prot = %p, flags = %p, f = %p, offset = %p\n", cur->addr, cur->length, cur->prot, cur->flags, cur->f, cur->offset);
 }
-void print_vma_list(struct mmap_info* head) {
-  for (; head; head = head->nxt) {
-    vmaprint(head);
+void print_vma(struct vma_node* vma) {
+  for (struct vma_node* ed = vma + MAX_VMA; vma < ed; ++vma) {
+    vmaprint(vma);
   }
 }
