@@ -277,8 +277,14 @@ fork_test(void)
   if(*(p1+PGSIZE) != 'A')
     err("fork mismatch (1)");
 
+#if DEBUG
+  printf("begin fork\n");
+#endif
   if((pid = fork()) < 0)
     err("fork");
+#if DEBUG
+  printf("fork done\n");
+#endif
   if (pid == 0) {
     _v1(p1);
     munmap(p1, PGSIZE); // just the first page

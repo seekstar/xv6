@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 struct spinlock tickslock;
 uint ticks;

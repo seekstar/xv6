@@ -224,8 +224,6 @@ void print_pa(uint64 pa, size_t n);
 void print_user(uint64 va, uint64 n);
 void print_mem(int user_src, uint64 src, uint64 n);
 
-void uvmunmap_lazy(pagetable_t pagetable, uint64 va, uint64 size, int do_free);
-
 uint64 va2pa(pagetable_t pt, uint64 va);
 
 int write_inode(struct inode* ip, uint offset, int user_src, uint64 src, int n);

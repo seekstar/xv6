@@ -13,7 +13,7 @@
 #include "stat.h"
 #include "proc.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 struct devsw devsw[NDEV];
 struct {
@@ -267,6 +267,9 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
 //[va, va + n - 1) have to be in the same page
 //Return the number of bytes written, or -1 on error
 int write_dirty_page(struct vma_node* vma, struct proc* p, uint64 va, uint64 n) {
+#if DEBUG
+  printf("Enter write_dirty_page\n");
+#endif
   pte_t* pte = walk(p->pagetable, va, 0);
   int ret = 0;
   if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {

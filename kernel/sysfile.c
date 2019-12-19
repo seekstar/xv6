@@ -16,7 +16,7 @@
 #include "file.h"
 #include "fcntl.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -544,7 +544,7 @@ int munmap(uint64 addr, size_t length) {
     if (write_dirty(cur, p, addr, length) < 0)
       return -1;
   }
-  uvmunmap_lazy(p->pagetable, addr, length, 1);
+  uvmunmap(p->pagetable, addr, length, 1);
   
   if (cur->addr == addr) {
     cur->addr += length;
