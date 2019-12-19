@@ -287,6 +287,14 @@ fork(void)
 
   np->state = RUNNABLE;
 
+  struct vma_node* cur = np->vma;
+  for (int i = 0; i < MAX_VMA; ++i) {
+    if (p->vma[i].length) {
+      memmove(cur, p->vma + i, sizeof(struct vma_node));
+      ++cur;
+    }
+  }
+
   release(&np->lock);
 
   return pid;
@@ -738,6 +746,7 @@ void vmaprint(struct vma_node* cur) {
 }
 void print_vma(struct vma_node* vma) {
   for (struct vma_node* ed = vma + MAX_VMA; vma < ed; ++vma) {
-    vmaprint(vma);
+    if (vma->length)
+      vmaprint(vma);
   }
 }
