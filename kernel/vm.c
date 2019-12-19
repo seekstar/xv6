@@ -212,10 +212,6 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   pte_t *pte;
   uint64 pa;
 
-  #if DEBUG
-  printf("uvmunmap: va = %p, size = %d\n", va, size);
-  #endif
-
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
