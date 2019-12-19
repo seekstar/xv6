@@ -106,15 +106,10 @@ filestat(struct file *f, uint64 addr)
   return -1;
 }
 
-int fileread_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n) {
-#if DEBUG
-  printf("fileread_inode: f->ip = %p, offset = %p, user_dst = %d, dst = %p, n = %d\n", f->ip, offset, user_dst, dst, n);
-#endif
-  int r;
-  ilock(f->ip);
-  if((r = readi(f->ip, user_dst, dst, offset, n)) > 0)
+int fileread_inode(struct file* f, int user_dst, uint64 dst, int n) {
+  int r = read_inode(f->ip, user_dst, dst, f->off, n);
+  if(r > 0)
     f->off += r;
-  iunlock(f->ip);
   return r;
 }
 // Read from file f.
@@ -134,7 +129,7 @@ fileread(struct file *f, uint64 addr, int n)
       return -1;
     r = devsw[f->major].read(f, 1, addr, n);
   } else if(f->type == FD_INODE){
-    r = fileread_inode(f, f->off, 1, addr, n);
+    r = fileread_inode(f, 1, addr, n);
   } else {
     panic("fileread");
   }
@@ -193,17 +188,13 @@ void print_mem(int user_src, uint64 src, uint64 n) {
   }
 }
 //Return the number of bytes written, or -1 on error
-int filewrite_inode(struct file* f, uint offset, int user_src, uint64 src, int n) {
+int filewrite_inode(struct file* f, int user_src, uint64 src, int n) {
   // write a few blocks at a time to avoid exceeding
   // the maximum log transaction size, including
   // i-node, indirect block, allocation blocks,
   // and 2 blocks of slop for non-aligned writes.
   // this really belongs lower down, since writei()
   // might be writing a device like the console.
-#if DEBUG
-  printf("filewrite_inode: f->ip = %p, offset = %p, user_src = %d, src = %p, n = %d\n", f->ip, offset, user_src, src, n);
-  print_mem(user_src, src, n);
-#endif
   int r;
   int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
   int i = 0;
@@ -227,6 +218,7 @@ int filewrite_inode(struct file* f, uint offset, int user_src, uint64 src, int n
   }
   return i == n ? n : -1;
 }
+
 // Write to file f.
 // addr is a user virtual address.
 int
@@ -243,7 +235,7 @@ filewrite(struct file *f, uint64 addr, int n)
         return -1;
       return devsw[f->major].write(f, 1, addr, n);
     case FD_INODE:
-      return filewrite_inode(f, f->off, 1, addr, n);
+      return filewrite_inode(f, 1, addr, n);
     default:
       panic("filewrite");
   }
@@ -258,7 +250,7 @@ int readfile_offset(struct file *f, uint offset, int user_dst, uint64 dst, int n
   if (f->type != FD_INODE)
     panic("readfile_offset");
 
-  return fileread_inode(f, offset, user_dst, dst, n);
+  return read_inode(f->ip, offset, user_dst, dst, n);
 }
 
 //Return the number of bytes writen, or -1 on error
@@ -269,7 +261,7 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
   if(f->type != FD_INODE)
     panic("writefile_offset");
 
-  return filewrite_inode(f, offset, user_src, src, n);
+  return write_inode(f->ip, offset, user_src, src, n);
 }
 
 //[va, va + n - 1) have to be in the same page

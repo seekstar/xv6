@@ -178,14 +178,14 @@ mmap_test(void)
 #if DEBUG
   printf("mmap (4), start check:\n");
 #endif
-  for (i = 0; i < PGSIZE + (PGSIZE/2); i++){
+  for (i = 0; i < PGSIZE * 2; i++){
     char b;
     if (read(fd, &b, 1) != 1)
       err("read (1)");
 #if DEBUG
     printf("%c", b);
 #endif
-    if (b != 'Z')
+    if (b != 'A')
       err("file does not contain modifications");
   }
 #if DEBUG
@@ -215,7 +215,7 @@ mmap_test(void)
   int fd2;
   if((fd2 = open("mmap2", O_RDWR|O_CREATE)) < 0)
     err("open mmap2");
-  if(write(fd1, "67890", 5) != 5)
+  if(write(fd2, "67890", 5) != 5)
     err("write mmap2");
   char *p2 = mmap(0, PGSIZE, PROT_READ, MAP_PRIVATE, fd2, 0);
   if(p2 == MAP_FAILED)

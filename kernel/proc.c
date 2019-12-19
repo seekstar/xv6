@@ -709,6 +709,7 @@ int add_mmap(struct mmap_info* cur, uint64 addr, size_t length, int prot, int fl
     if (0 == (cur->nxt = bd_malloc(sizeof(struct mmap_info))))
       return -1;
     cur = cur->nxt;
+    cur->nxt = 0;
   }
   cur->addr = addr;
   cur->length = length;

@@ -483,6 +483,7 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
 // Caller must hold ip->lock.
 // If user_src==1, then src is a user virtual address;
 // otherwise, src is a kernel address.
+//Return the number of bytes written, or -1 on error
 int
 writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
 {
@@ -672,4 +673,28 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
+}
+
+
+
+//Return the number of bytes written, or -1 on error
+int write_inode(struct inode* ip, uint offset, int user_src, uint64 src, int n) {
+#if DEBUG
+  printf("filewrite_inode: ip = %p, offset = %p, user_src = %d, src = %p, n = %d\n", ip, offset, user_src, src, n);
+  print_mem(user_src, src, n);
+#endif
+  int r;
+  begin_op(ip->dev);
+  ilock(ip);
+  r = writei(ip, user_src, src, offset, n);
+  iunlock(ip);
+  end_op(ip->dev);
+  return r;
+}
+
+int read_inode(struct inode* ip, uint offset, int user_dst, uint64 dst, int n) {
+  ilock(ip);
+  int r = readi(ip, user_dst, dst, offset, n);
+  iunlock(ip);
+  return r;
 }
