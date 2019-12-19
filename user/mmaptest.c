@@ -6,8 +6,6 @@
 #include "kernel/fs.h"
 #include "user/user.h"
 
-#define DEBUG 1
-
 void mmap_test();
 void fork_test();
 char buf[BSIZE];
@@ -121,16 +119,10 @@ mmap_test(void)
   // should be able to map file opened read-only with private writable
   // mapping
   p = mmap(0, PGSIZE*2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-#if DEBUG
-  printf("mmaped 2\n");
-#endif
   if (p == MAP_FAILED)
     err("mmap (2)");
   if (close(fd) == -1)
     err("close");
-#if DEBUG
-  printf("In mmap (2), fd is closed\n");
-#endif
   _v1(p);
   for (i = 0; i < PGSIZE*2; i++)
     p[i] = 'Z';
@@ -147,9 +139,6 @@ mmap_test(void)
   if (close(fd) == -1)
     err("close");
 
-#if DEBUG
-  printf("mmap (3) begin\n");
-#endif
   // check that mmap does allow read/write mapping of a
   // file opened read/write.
   if ((fd = open(f, O_RDWR)) == -1)
@@ -175,22 +164,13 @@ mmap_test(void)
   // written to the file.
   if ((fd = open(f, O_RDWR)) == -1)
     err("open");
-#if DEBUG
-  printf("mmap (4), start check:\n");
-#endif
-  for (i = 0; i < PGSIZE * 2; i++){
+  for (i = 0; i < PGSIZE + (PGSIZE/2); i++){
     char b;
     if (read(fd, &b, 1) != 1)
       err("read (1)");
-#if DEBUG
-    printf("%c", b);
-#endif
     if (b != 'Z')
       err("file does not contain modifications");
   }
-#if DEBUG
-  printf("\n");
-#endif
   if (close(fd) == -1)
     err("close");
 
@@ -198,9 +178,6 @@ mmap_test(void)
   if (munmap(p+PGSIZE*2, PGSIZE) == -1)
     err("munmap (4)");
 
-#if DEBUG
-  printf("mmap (4) done\n");
-#endif
   //
   // mmap two files at the same time.
   //
@@ -215,24 +192,16 @@ mmap_test(void)
   close(fd1);
   unlink("mmap1");
 
-#if DEBUG
-  printf("mmap1 done\n");
-#endif
-
   int fd2;
   if((fd2 = open("mmap2", O_RDWR|O_CREATE)) < 0)
     err("open mmap2");
-  if(write(fd2, "67890", 5) != 5)
+  if(write(fd1, "67890", 5) != 5)
     err("write mmap2");
   char *p2 = mmap(0, PGSIZE, PROT_READ, MAP_PRIVATE, fd2, 0);
   if(p2 == MAP_FAILED)
     err("mmap mmap2");
   close(fd2);
   unlink("mmap2");
-
-#if DEBUG
-  printf("mmap2 done\n");
-#endif
 
   if(memcmp(p1, "12345", 5) != 0)
     err("mmap1 mismatch");
@@ -277,14 +246,8 @@ fork_test(void)
   if(*(p1+PGSIZE) != 'A')
     err("fork mismatch (1)");
 
-#if DEBUG
-  printf("begin fork\n");
-#endif
   if((pid = fork()) < 0)
     err("fork");
-#if DEBUG
-  printf("fork done\n");
-#endif
   if (pid == 0) {
     _v1(p1);
     munmap(p1, PGSIZE); // just the first page
