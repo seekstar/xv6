@@ -121,24 +121,27 @@ mmap_test(void)
   // should be able to map file opened read-only with private writable
   // mapping
   p = mmap(0, PGSIZE*2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+#if DEBUG
+  printf("mmaped 2\n");
+#endif
   if (p == MAP_FAILED)
     err("mmap (2)");
   if (close(fd) == -1)
     err("close");
+#if DEBUG
+  printf("In mmap (2), fd is closed\n");
+#endif
   _v1(p);
   for (i = 0; i < PGSIZE*2; i++)
     p[i] = 'Z';
   if (munmap(p, PGSIZE*2) == -1)
     err("munmap (2)");
-#if DEBUG
-  printf("mmap (2) done\n");
-#endif
 
   // check that mmap doesn't allow read/write mapping of a
   // file opened read-only.
   if ((fd = open(f, O_RDONLY)) == -1)
     err("open");
-  p = mmap(0, PGSIZE*3, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+  p = mmap(0, PGSIZE*3, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (p != MAP_FAILED)
     err("mmap call should have failed");
   if (close(fd) == -1)
@@ -161,53 +164,39 @@ mmap_test(void)
   _v1(p);
 
   // write the mapped memory.
-  /*for (i = 0; i < PGSIZE*2; i++)
-    p[i] = 'Z';*/
+  for (i = 0; i < PGSIZE*2; i++)
+    p[i] = 'Z';
 
   // unmap just the first two of three pages of mapped memory.
-  /*if (munmap(p, PGSIZE*2) == -1)
+  if (munmap(p, PGSIZE*2) == -1)
     err("munmap (3)");
-    */
-#if DEBUG
-  printf("unmmap (3) done\n");
-#endif
 
   // check that the writes to the mapped memory were
   // written to the file.
   if ((fd = open(f, O_RDWR)) == -1)
     err("open");
 #if DEBUG
-  printf("mmap (4) begin read\n");
+  printf("mmap (4), start check:\n");
 #endif
   for (i = 0; i < PGSIZE + (PGSIZE/2); i++){
-    char b = 0;
-#if DEBUG
-    printf("&b = %p\n", &b);
-#endif
+    char b;
     if (read(fd, &b, 1) != 1)
       err("read (1)");
 #if DEBUG
-    printf("%c\n", b);
+    printf("%c", b);
 #endif
     if (b != 'Z')
       err("file does not contain modifications");
   }
 #if DEBUG
-  printf("\nmmap (4) close begin\n");
+  printf("\n");
 #endif
   if (close(fd) == -1)
     err("close");
 
-#if DEBUG
-  printf("munmap(4) begin\n");
-#endif
   // unmap the rest of the mapped memory.
   if (munmap(p+PGSIZE*2, PGSIZE) == -1)
     err("munmap (4)");
-
-#if DEBUG
-  printf("mmap (4) done\n");
-#endif
 
   //
   // mmap two files at the same time.

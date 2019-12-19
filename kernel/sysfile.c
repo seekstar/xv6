@@ -541,11 +541,10 @@ int munmap(uint64 addr, size_t length) {
   }
 
   if (cur->flags & MAP_SHARED) {
-    //writefile_offset(p->ofile[cur->fd], cur->offset + (addr - cur->addr), 1, addr, length);
     if (write_dirty(cur, p, addr, length) < 0)
       return -1;
   }
-  uvmunmap(p->pagetable, addr, length, 1);
+  uvmunmap_lazy(p->pagetable, addr, length, 1);
   
   if (cur->addr == addr) {
     cur->addr += length;

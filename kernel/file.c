@@ -107,6 +107,9 @@ filestat(struct file *f, uint64 addr)
 }
 
 int fileread_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n) {
+#if DEBUG
+  printf("fileread_inode: f->ip = %p, offset = %p, user_dst = %d, dst = %p, n = %d\n", f->ip, offset, user_dst, dst, n);
+#endif
   int r;
   ilock(f->ip);
   if((r = readi(f->ip, user_dst, dst, offset, n)) > 0)
@@ -131,7 +134,7 @@ fileread(struct file *f, uint64 addr, int n)
       return -1;
     r = devsw[f->major].read(f, 1, addr, n);
   } else if(f->type == FD_INODE){
-    r = fileread_inode(f, f->off, 0, addr, n);
+    r = fileread_inode(f, f->off, 1, addr, n);
   } else {
     panic("fileread");
   }
@@ -139,13 +142,68 @@ fileread(struct file *f, uint64 addr, int n)
   return r;
 }
 
-int filewrite_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n) {
+int islower(char ch) {
+  return 'a' <= ch && ch <= 'z';
+}
+int isupper(char ch) {
+  return 'A' <= ch && ch <= 'Z';
+}
+int isalpha(char ch) {
+  return islower(ch) || isupper(ch);
+}
+int isdigit(char ch) {
+  return '0' <= ch && ch <= '9';
+}
+int isprint(char ch) {
+  return isalpha(ch) || isdigit(ch);
+}
+void print_char(char* ch) {
+  if (ch) {
+    if (0 == *ch) {
+      printf("_");
+    } else if (isprint(*ch)) {
+      printf("%c", *ch);
+    } else {
+      printf("(%d)", *ch);
+    }
+  } else {
+    printf(" ");
+  }
+}
+void print_user(uint64 va, uint64 n) {
+  pagetable_t pt = myproc()->pagetable;
+  n += va;
+  for (; va < n; ++va) {
+    print_char((char*)va2pa(pt, va));
+  }
+  printf("\n");
+}
+void print_pa(uint64 pa, size_t n) {
+  n += pa;
+  for (; pa < n; ++pa) {
+    print_char((char*)pa);
+  }
+  printf("\n");
+}
+void print_mem(int user_src, uint64 src, uint64 n) {
+  if (user_src) {
+    print_user(src, n);
+  } else {
+    print_pa(src, n);
+  }
+}
+//Return the number of bytes written, or -1 on error
+int filewrite_inode(struct file* f, uint offset, int user_src, uint64 src, int n) {
   // write a few blocks at a time to avoid exceeding
   // the maximum log transaction size, including
   // i-node, indirect block, allocation blocks,
   // and 2 blocks of slop for non-aligned writes.
   // this really belongs lower down, since writei()
   // might be writing a device like the console.
+#if DEBUG
+  printf("filewrite_inode: f->ip = %p, offset = %p, user_src = %d, src = %p, n = %d\n", f->ip, offset, user_src, src, n);
+  print_mem(user_src, src, n);
+#endif
   int r;
   int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
   int i = 0;
@@ -156,7 +214,7 @@ int filewrite_inode(struct file* f, uint offset, int user_dst, uint64 dst, int n
 
     begin_op(f->ip->dev);
     ilock(f->ip);
-    if ((r = writei(f->ip, user_dst, dst + i, f->off, n1)) > 0)
+    if ((r = writei(f->ip, user_src, src + i, f->off, n1)) > 0)
       f->off += r;
     iunlock(f->ip);
     end_op(f->ip->dev);
@@ -218,13 +276,16 @@ int writefile_offset(struct file *f, uint offset, int user_src, uint64 src, int 
 //Return the number of bytes written, or -1 on error
 int write_dirty_page(struct mmap_info* vma, struct proc* p, uint64 va, uint64 n) {
   pte_t* pte = walk(p->pagetable, va, 0);
+  int ret = 0;
   if (pte && (*pte & PTE_V) && (*pte & PTE_R) && (*pte & PTE_D)) {
-#if DEBUG
-    printf("write_dirty_page: va = %p, %d bytes written\n", va, n);
-#endif
-    return writefile_offset(vma->f, vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
+    ret = writefile_offset(vma->f, vma->offset + (va - vma->addr), 1, va, PGSIZE - (va - PGROUNDDOWN(va)));
   }
-  return 0;
+  if (ret > 0) {
+#if DEBUG
+    printf("write_dirty_page: va = %p, %d bytes written, offset = %p, f = %p\n", va, ret, vma->offset + (va - vma->addr));
+#endif
+  }
+  return ret;
 }
 //Write [va, va + n) to disk. However, pages that are not dirty will be ignored
 //Return 0 on success, -1 on error

@@ -118,6 +118,10 @@ walkaddr(pagetable_t pagetable, uint64 va)
   return pa;
 }
 
+uint64 va2pa(pagetable_t pt, uint64 va) {
+  return walkaddr(pt, va) | (va & VA_OFFSET);
+}
+
 // add a mapping to the kernel page table.
 // only used when booting.
 // does not flush TLB or enable paging.
@@ -200,6 +204,35 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       kfree((void*)pa);
     }
     *pte = 0;
+    if(a == last)
+      break;
+    a += PGSIZE;
+    pa += PGSIZE;
+  }
+}
+
+void
+uvmunmap_lazy(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
+{
+  uint64 a, last;
+  pte_t *pte;
+  uint64 pa;
+
+  a = PGROUNDDOWN(va);
+  last = PGROUNDDOWN(va + size - 1);
+  for(;;){
+    pte = walk(pagetable, a, 0);
+    if (pte) {
+      if (*pte & PTE_V) {
+        if(PTE_FLAGS(*pte) == PTE_V)
+          panic("uvmunmap: not a leaf");
+        if(do_free){
+          pa = PTE2PA(*pte);
+          kfree((void*)pa);
+        }
+      }
+      *pte = 0;
+    }
     if(a == last)
       break;
     a += PGSIZE;

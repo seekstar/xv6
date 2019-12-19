@@ -34,15 +34,6 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-void print_block(char* pa, size_t n) {
-  for (size_t i = 0; i < n; ++i) {
-    if (pa[i])
-      printf("%c", pa[i]);
-    else
-      printf("_");
-  }
-  printf("\n");
-}
 //Only for mmaped memory
 int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
   struct mmap_info* cur = find_mmap_info_node(&p->head, r_stval());
@@ -73,7 +64,7 @@ int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
     }
 #if DEBUG
     printf("pay_for_lazy_mmap: read to va: %p\tpa: %p\n", va, pa);
-    print_block(pa, PGSIZE);
+    print_pa((uint64)pa, PGSIZE);
 #endif
     *pte = PA2PTE(pa) | cur->prot | PTE_U | PTE_V;
   }

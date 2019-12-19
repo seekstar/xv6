@@ -728,7 +728,7 @@ int clear_vma(struct proc* p) {
       if (write_dirty(cur, p, cur->addr, cur->length) < 0)
         return -1;
     }
-    uvmunmap(p->pagetable, cur->addr, cur->length, 1);
+    uvmunmap_lazy(p->pagetable, cur->addr, cur->length, 1);
   
     struct mmap_info* tmp = cur;
     cur = cur->nxt;

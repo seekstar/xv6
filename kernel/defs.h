@@ -220,4 +220,10 @@ void print_vma_list(struct mmap_info* head);
 
 int clear_vma(struct proc* p);
 
-void print_block(char* pa, size_t n);
+void print_pa(uint64 pa, size_t n);
+void print_user(uint64 va, uint64 n);
+void print_mem(int user_src, uint64 src, uint64 n);
+
+void uvmunmap_lazy(pagetable_t pagetable, uint64 va, uint64 size, int do_free);
+
+uint64 va2pa(pagetable_t pt, uint64 va);

@@ -345,6 +345,8 @@ sfence_vma()
 #define PXSHIFT(level)  (PGSHIFT+(9*(level)))
 #define PX(level, va) ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK)
 
+#define VA_OFFSET (PGSIZE - 1)
+
 // one beyond the highest possible virtual address.
 // MAXVA is actually one bit less than the max allowed by
 // Sv39, to avoid having to sign-extend virtual addresses
