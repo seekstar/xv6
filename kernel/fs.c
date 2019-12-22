@@ -679,10 +679,6 @@ nameiparent(char *path, char *name)
 
 //Return the number of bytes written, or -1 on error
 int write_inode(struct inode* ip, uint offset, int user_src, uint64 src, int n) {
-#if DEBUG
-  printf("filewrite_inode: ip = %p, offset = %p, user_src = %d, src = %p, n = %d\n", ip, offset, user_src, src, n);
-  print_mem(user_src, src, n);
-#endif
   int r;
   begin_op(ip->dev);
   ilock(ip);

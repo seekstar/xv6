@@ -62,10 +62,6 @@ int pay_for_lazy_mmap(struct proc* p, uint64 va, int killer) {
     if (r < PGSIZE) {
       memset(pa + r, 0, PGSIZE - r);
     }
-#if DEBUG
-    printf("pay_for_lazy_mmap: read to va: %p\tpa: %p\n", va, pa);
-    print_pa((uint64)pa, PGSIZE);
-#endif
     *pte = PA2PTE(pa) | cur->prot | PTE_U | PTE_V;
   }
   return 0;

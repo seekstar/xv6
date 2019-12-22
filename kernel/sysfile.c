@@ -506,10 +506,6 @@ uint64 mmap(uint64 addr, size_t length, int prot, int flags,
   if (p->sz < tmp) {
     p->sz = tmp;
   }
-#if DEBUG
-  printf("mmaped addr = %p, f->ref = %d, vma:\n", addr, p->ofile[fd]->ref);
-  print_vma(p->vma);
-#endif
   return addr;
 }
 
@@ -557,10 +553,6 @@ int munmap(uint64 addr, size_t length) {
   if (0 == cur->length) {
     fileclose(cur->f);
   }
-#if DEBUG
-  printf("unmmaped addr = %p, vma:\n", addr);
-  print_vma(p->vma);
-#endif
   return 0;
 }
 
