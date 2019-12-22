@@ -78,7 +78,7 @@ int prepare(uint64 va, uint64 n) {
     if (-1 == prepare_va(va)) 
       return -1;
     if (n > 1)
-      if (-1 == prepare_va(va + PGSIZE - 1))
+      if (-1 == prepare_va(va + n - 1))
         return -1;
   }
   while (n > PGSIZE) {
