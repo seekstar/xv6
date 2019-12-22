@@ -103,8 +103,5 @@ sys_symlink(void) {
   char src[MAXPATH], path[MAXPATH];
   argstr(0, src, MAXPATH);
   argstr(1, path, MAXPATH);
-#if DEBUG
-  printf("sys_symlink: src = %p(%s), path = %p(%s)\n", src, src, path, path);
-#endif
   return symlink(src, path);
 }
