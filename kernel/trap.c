@@ -66,6 +66,7 @@ int pay_for_lazy(pagetable_t pagetable, uint64 va, int killer) {
 int prepare_va(uint64 va) {
   return pay_for_lazy(myproc()->pagetable, va, 0);
 }
+//va may be not page aligned.
 int prepare(uint64 va, uint64 n) {
 #if DEBUG_PREPARE
   printf("prepare: va = %p, n = %d\n", va, n);
@@ -77,7 +78,7 @@ int prepare(uint64 va, uint64 n) {
     if (-1 == prepare_va(va)) 
       return -1;
     if (n > 1)
-      if (-1 == prepare_va(va)) 
+      if (-1 == prepare_va(va + PGSIZE - 1))
         return -1;
   }
   while (n > PGSIZE) {
